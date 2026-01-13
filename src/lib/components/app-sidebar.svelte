@@ -3,8 +3,9 @@
 	import SearchForm from './search-form.svelte';
 	import * as Collapsible from '$lib/components/ui/collapsible/index.js';
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
-	import { getTags, getEndpointsByTag, specs } from '$lib/api/openapi.js';
+	import { getEndpointsByTag, specs } from '$lib/api/openapi.js';
 	import { Badge } from '$lib/components/ui/badge';
+	import { Button } from '$lib/components/ui/button';
 
 	import GalleryVerticalEndIcon from '@lucide/svelte/icons/gallery-vertical-end';
 	import MinusIcon from '@lucide/svelte/icons/minus';
@@ -119,19 +120,20 @@
 								<Collapsible.Content>
 									<Sidebar.MenuSub>
 										{#each tagItem.items as endpoint}
-											<Sidebar.MenuSubItem>
+											<Sidebar.MenuSubItem class="p-0">
 												<Sidebar.MenuSubButton isActive={endpoint.isActive}>
 													{#snippet child({ props })}
-														<a
+														<Button
+															variant="ghost"
 															{...props}
 															href={endpoint.url}
-															class="flex justify-between py-0.5 text-sm"
+															class="flex justify-between text-sm"
 														>
 															{endpoint.title}
-															<Badge variant="outline" class={methodClass(endpoint.method)}
+															<Badge variant="outline"  class={methodClass(endpoint.method)}
 																>{endpoint.method}</Badge
 															>
-														</a>
+														</Button>
 													{/snippet}
 												</Sidebar.MenuSubButton>
 											</Sidebar.MenuSubItem>
