@@ -119,7 +119,7 @@
     "/sessions": {
       "post": {
         "tags": ["Sessions"],
-        "summary": "Create session (login)",
+        "summary": "Create session",
         "requestBody": {
           "required": true,
           "content": {
@@ -160,7 +160,7 @@
       },
       "delete": {
         "tags": ["Sessions"],
-        "summary": "Delete session (logout)",
+        "summary": "Delete session",
         "parameters": [
           { "$ref": "#/components/parameters/SessionId" }
         ],
@@ -306,6 +306,7 @@
       "post": {
         "tags": ["Invites"],
         "summary": "Leave guild",
+        "description": "The reason for this being a post is because you don't leave directly. You create a request for leaving, it has to be approved first. If this is not done in a certain amount of time, to request gets auto-approved",
         "parameters": [
           { "$ref": "#/components/parameters/GuildId" }
         ],
