@@ -38,7 +38,7 @@
 	<div class="text-muted-foreground">No endpoints found for tag "{currentTag}".</div>
 {:else}
 	{#each endpoints as endpoint}
-		<div id={endpoint.method.toLowerCase()} class="space-y-4">
+		<div id={`${endpoint.path}-${endpoint.method}`} class="space-y-4">
 			<!-- Endpoint Card -->
 			<Card class="border border-border bg-background/50 shadow-sm">
 				<CardHeader class="flex items-center justify-between gap-4">

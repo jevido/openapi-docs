@@ -43,7 +43,7 @@
 				isOpen: pathname.startsWith(`/reference/${slugify(tag)}`),
 				items: filtered.map((op) => ({
 					title: op.summary || `${op.method} ${op.path}`,
-					url: `${slugify(tag)}#${op.method}`,
+					url: `${slugify(tag)}#${op.path}-${op.method}`,
 					method: op.method,
 					isActive: false
 				}))
@@ -130,7 +130,7 @@
 															class="flex justify-between text-sm"
 														>
 															{endpoint.title}
-															<Badge variant="outline"  class={methodClass(endpoint.method)}
+															<Badge variant="outline" class={methodClass(endpoint.method)}
 																>{endpoint.method}</Badge
 															>
 														</Button>
