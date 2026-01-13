@@ -13,23 +13,16 @@
 	let { ref = $bindable(null), ...restProps } = $props();
 
 	const pathname = $derived(page.url.pathname);
-
 	let query = $state('');
 
-	/* =========================
-	   Derived OpenAPI data
-	========================= */
-
-	const tags = $derived(specs ? getTags(specs) : []);
 	const endpointsByTag = $derived(specs ? getEndpointsByTag(specs) : {});
 
 	const displayTitle = $derived(specs?.info?.title ?? 'Documentation');
 	const displayVersion = $derived(specs?.info?.version ? `v${specs.info.version}` : 'v1.0.0');
 
 	/* =========================
-	   Filtered nav
+	   Filtered nav grouped per tag
 	========================= */
-
 	const navMain = $derived.by(() => {
 		if (!specs) return [];
 
@@ -38,26 +31,20 @@
 		for (const [tag, endpoints] of Object.entries(endpointsByTag)) {
 			const filtered = endpoints.filter((op) => {
 				if (!query.trim()) return true;
-				const needle = query.toLowerCase();
-
-				return (
-					op.path.toLowerCase().includes(needle) ||
-					op.summary.toLowerCase().includes(needle) ||
-					op.method.toLowerCase().includes(needle)
-				);
+				return op.path.includes(query) || op.summary.includes(query) || op.method.includes(needle);
 			});
 
 			if (!filtered.length) continue;
 
 			result.push({
 				title: tag,
-				url: `#${slugify(tag)}`,
-				isOpen: filtered.some((item) => pathname === buildEndpointUrl(item)),
+				url: `/reference/${slugify(tag)}`,
+				isOpen: pathname.startsWith(`/reference/${slugify(tag)}`),
 				items: filtered.map((op) => ({
 					title: op.summary || `${op.method} ${op.path}`,
-					url: buildEndpointUrl(op),
+					url: `${slugify(tag)}#${op.method}`,
 					method: op.method,
-					isActive: pathname === buildEndpointUrl(op)
+					isActive: false
 				}))
 			});
 		}
@@ -65,18 +52,8 @@
 		return result;
 	});
 
-	function buildEndpointUrl(op) {
-		// You can change this to match your routing strategy
-		// Example: /reference/GET/guilds
-		const safePath = op.path.replace(/\//g, '_').replace(/^_/, '');
-		return `/reference/${op.method}/${safePath}`;
-	}
-
 	function slugify(value) {
-		return value
-			.toLowerCase()
-			.replace(/[^a-z0-9]+/g, '-')
-			.replace(/(^-|-$)+/g, '');
+		return value.replace(/[^A-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
 	}
 
 	function methodClass(method) {
@@ -111,7 +88,7 @@
 							</div>
 							<div class="flex flex-col gap-0.5 leading-none">
 								<span class="font-medium">{displayTitle}</span>
-								<span class="">{displayVersion}</span>
+								<span>{displayVersion}</span>
 							</div>
 						</a>
 					{/snippet}
@@ -125,43 +102,37 @@
 	<Sidebar.Content>
 		<Sidebar.Group>
 			<Sidebar.Menu>
-				{#each navMain as item, index (item.title)}
-					<Collapsible.Root open={item.isOpen || index === 0} class="group/collapsible">
+				{#each navMain as tagItem, index}
+					<Collapsible.Root open={tagItem.isOpen || index === 0} class="group/collapsible">
 						<Sidebar.MenuItem>
 							<Collapsible.Trigger>
 								{#snippet child({ props })}
 									<Sidebar.MenuButton {...props}>
-										{item.title}
+										{tagItem.title}
 										<PlusIcon class="ms-auto group-data-[state=open]/collapsible:hidden" />
 										<MinusIcon class="ms-auto group-data-[state=closed]/collapsible:hidden" />
 									</Sidebar.MenuButton>
 								{/snippet}
 							</Collapsible.Trigger>
 
-							{#if item.items?.length}
+							{#if tagItem.items?.length}
 								<Collapsible.Content>
 									<Sidebar.MenuSub>
-										{#each item.items as subItem (subItem.url)}
+										{#each tagItem.items as endpoint}
 											<Sidebar.MenuSubItem>
-												<Sidebar.MenuSubButton isActive={subItem.isActive}>
+												<Sidebar.MenuSubButton isActive={endpoint.isActive}>
 													{#snippet child({ props })}
 														<a
 															{...props}
-															href={subItem.url}
+															href={endpoint.url}
 															class="flex justify-between py-0.5 text-sm"
 														>
-															{subItem.title}
-															<Badge variant="outline" class={methodClass(subItem.method)}
-																>{subItem.method}</Badge
+															{endpoint.title}
+															<Badge variant="outline" class={methodClass(endpoint.method)}
+																>{endpoint.method}</Badge
 															>
 														</a>
 													{/snippet}
-
-													{#if subItem.method}
-														<Sidebar.MenuBadge class={methodClass(subItem.method)}>
-															{subItem.method}
-														</Sidebar.MenuBadge>
-													{/if}
 												</Sidebar.MenuSubButton>
 											</Sidebar.MenuSubItem>
 										{/each}

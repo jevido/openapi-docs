@@ -190,7 +190,7 @@
       },
       "post": {
         "tags": ["Guilds"],
-        "summary": "Create guild (bakery)",
+        "summary": "Create guild",
         "requestBody": {
           "required": true,
           "content": {
