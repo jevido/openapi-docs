@@ -1,99 +1,233 @@
-const HTTP_METHODS = new Set(['get', 'post', 'put', 'patch', 'delete', 'head', 'options', 'trace']);
+// openapi.js
+// Utility helpers for reading and normalizing OpenAPI 3.x specs
+// Designed for building custom docs UIs (Svelte + shadcn friendly)
 
-const METHOD_ORDER = ['get', 'post', 'put', 'patch', 'delete', 'head', 'options', 'trace'];
+/* ================================
+   Loader
+================================ */
 
-export function getSpecMeta(spec) {
-	const info = spec?.info ?? {};
+export async function loadOpenApi(url) {
+	const res = await fetch(url);
+	if (!res.ok) {
+		throw new Error(`Failed to load OpenAPI: ${res.status}`);
+	}
+	return res.json();
+}
+
+/* ================================
+   Tags
+================================ */
+
+export function getTags(openapi) {
+	return (
+		openapi.tags?.map((tag) => ({
+			name: tag.name,
+			description: tag.description || ''
+		})) || []
+	);
+}
+
+/* ================================
+   Endpoints grouped by tag
+================================ */
+
+export function getEndpointsByTag(openapi) {
+	const result = {};
+
+	for (const [path, methods] of Object.entries(openapi.paths || {})) {
+		for (const [method, operation] of Object.entries(methods)) {
+			const tags = operation.tags || ['Untagged'];
+
+			for (const tag of tags) {
+				if (!result[tag]) result[tag] = [];
+
+				result[tag].push({
+					path,
+					method: method.toUpperCase(),
+					summary: operation.summary || '',
+					description: operation.description || '',
+					operationId: operation.operationId || null
+				});
+			}
+		}
+	}
+
+	return result;
+}
+
+/* ================================
+   Single operation
+================================ */
+
+export function getOperation(openapi, path, method) {
+	const op = openapi.paths?.[path]?.[method.toLowerCase()];
+	if (!op) return null;
+
 	return {
-		title: info.title ?? 'API Reference',
-		version: info.version ?? 'unversioned',
-		description: info.description ?? ''
+		path,
+		method: method.toUpperCase(),
+		summary: op.summary || '',
+		description: op.description || '',
+		parameters: op.parameters || [],
+		requestBody: op.requestBody || null,
+		responses: op.responses || {},
+		tags: op.tags || []
 	};
 }
 
-export function getBaseUrl(spec, specUrl) {
-	const serverUrl = spec?.servers?.[0]?.url;
-	if (serverUrl) {
-		if (serverUrl.startsWith('http://') || serverUrl.startsWith('https://')) {
-			return serverUrl.replace(/\/$/, '');
-		}
+/* ================================
+   $ref resolver
+================================ */
 
-		if (specUrl) {
-			try {
-				const origin = new URL(specUrl).origin;
-				return `${origin}${serverUrl.startsWith('/') ? '' : '/'}${serverUrl}`.replace(/\/$/, '');
-			} catch {
-				return serverUrl.replace(/\/$/, '');
-			}
-		}
+export function resolveRef(openapi, ref) {
+	if (!ref || typeof ref !== 'string') return null;
+	if (!ref.startsWith('#/')) return null;
 
-		return serverUrl.replace(/\/$/, '');
+	const parts = ref.replace('#/', '').split('/');
+	let current = openapi;
+
+	for (const part of parts) {
+		current = current?.[part];
+		if (!current) return null;
 	}
 
-	if (specUrl) {
-		try {
-			return new URL(specUrl).origin;
-		} catch {
-			return '';
-		}
-	}
-
-	return '';
+	return current;
 }
 
-export function getOperations(spec) {
-	const paths = spec?.paths ?? {};
-	const operations = [];
+/* ================================
+   Schema helpers
+================================ */
 
-	for (const [path, pathItem] of Object.entries(paths)) {
-		if (!pathItem || typeof pathItem !== 'object') continue;
+export function getSchema(openapi, name) {
+	return openapi.components?.schemas?.[name] || null;
+}
 
-		const sharedParams = Array.isArray(pathItem.parameters) ? pathItem.parameters : [];
+export function expandSchema(openapi, schema) {
+	if (!schema) return null;
 
-		for (const [method, operation] of Object.entries(pathItem)) {
-			if (!HTTP_METHODS.has(method)) continue;
-			if (!operation || typeof operation !== 'object') continue;
+	// Resolve $ref
+	if (schema.$ref) {
+		const resolved = resolveRef(openapi, schema.$ref);
+		return expandSchema(openapi, resolved);
+	}
 
-			const params = Array.isArray(operation.parameters) ? operation.parameters : [];
-			const operationId = toOperationId(method, path, operation);
-			const tags =
-				Array.isArray(operation.tags) && operation.tags.length ? operation.tags : ['default'];
+	// Object
+	if (schema.type === 'object' && schema.properties) {
+		const properties = {};
 
-			operations.push({
-				id: operationId,
-				method,
+		for (const [key, value] of Object.entries(schema.properties)) {
+			properties[key] = expandSchema(openapi, value);
+		}
+
+		return {
+			...schema,
+			properties
+		};
+	}
+
+	// Array
+	if (schema.type === 'array' && schema.items) {
+		return {
+			...schema,
+			items: expandSchema(openapi, schema.items)
+		};
+	}
+
+	return schema;
+}
+
+/* ================================
+   Parameters
+================================ */
+
+export function getParameters(openapi, operation) {
+	return (operation.parameters || []).map((param) => {
+		let schema = param.schema;
+
+		if (schema?.$ref) {
+			schema = resolveRef(openapi, schema.$ref);
+		}
+
+		return {
+			name: param.name,
+			in: param.in,
+			required: param.required || false,
+			description: param.description || '',
+			schema
+		};
+	});
+}
+
+/* ================================
+   Request body
+================================ */
+
+export function getRequestBodySchema(openapi, operation) {
+	const content = operation.requestBody?.content;
+	if (!content) return null;
+
+	const json = content['application/json'];
+	if (!json?.schema) return null;
+
+	return expandSchema(openapi, json.schema);
+}
+
+/* ================================
+   Responses
+================================ */
+
+export function getResponseSchemas(openapi, operation) {
+	const result = {};
+
+	for (const [status, response] of Object.entries(operation.responses || {})) {
+		const content = response.content?.['application/json'];
+		if (!content?.schema) continue;
+
+		result[status] = expandSchema(openapi, content.schema);
+	}
+
+	return result;
+}
+
+/* ================================
+   High-level doc builder
+================================ */
+
+export function getEndpointDoc(openapi, path, method) {
+	const operation = getOperation(openapi, path, method);
+	if (!operation) return null;
+
+	return {
+		...operation,
+		parameters: getParameters(openapi, operation),
+		requestBodySchema: getRequestBodySchema(openapi, operation),
+		responseSchemas: getResponseSchemas(openapi, operation)
+	};
+}
+
+/* ================================
+   Convenience helpers
+================================ */
+
+export function getAllEndpoints(openapi) {
+	const result = [];
+
+	for (const [path, methods] of Object.entries(openapi.paths || {})) {
+		for (const [method, operation] of Object.entries(methods)) {
+			result.push({
 				path,
-				summary: operation.summary ?? operationId,
-				description: operation.description ?? '',
-				operationId,
-				tags,
-				deprecated: Boolean(operation.deprecated),
-				parameters: [...sharedParams, ...params],
-				requestBody: operation.requestBody ?? null,
-				responses: operation.responses ?? {}
+				method: method.toUpperCase(),
+				summary: operation.summary || '',
+				tags: operation.tags || []
 			});
 		}
 	}
 
-	return operations.sort((a, b) => {
-		if (a.path !== b.path) return a.path.localeCompare(b.path);
-		return METHOD_ORDER.indexOf(a.method) - METHOD_ORDER.indexOf(b.method);
-	});
+	return result;
 }
 
-export function getSchemas(spec) {
-	const schemas = spec?.components?.schemas ?? {};
-	return Object.entries(schemas).map(([name, schema]) => ({ name, schema }));
+export function getSchemas(openapi) {
+	return openapi.components?.schemas || {};
 }
 
-export function toOperationId(method, path, operation) {
-	if (operation?.operationId) return operation.operationId;
-	const normalizedPath = path
-		.replace(/[{}]/g, '')
-		.split('/')
-		.filter(Boolean)
-		.map((segment) => segment.replace(/[^a-zA-Z0-9]+/g, '-'))
-		.filter(Boolean)
-		.join('-');
-	return `${method}-${normalizedPath || 'root'}`;
-}
+export const specs = await loadOpenApi('/openapi.json');

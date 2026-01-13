@@ -1,0 +1,619 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Bakery Platform PaaS API",
+    "description": "API for managing users, sessions, bakeries (guilds), memberships and RBAC roles in the Bakery Platform PaaS.",
+    "version": "0.1.0"
+  },
+  "servers": [
+    {
+      "url": "https://api.bakerycloud.com/v1",
+      "description": "Production"
+    }
+  ],
+  "tags": [
+    { "name": "Users" },
+    { "name": "Sessions" },
+    { "name": "Guilds" },
+    { "name": "Invites" },
+    { "name": "Memberships" },
+    { "name": "Roles" }
+  ],
+  "paths": {
+    "/users": {
+      "get": {
+        "tags": ["Users"],
+        "summary": "List users",
+        "responses": {
+          "200": {
+            "description": "List of users",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/User" }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Users"],
+        "summary": "Create user",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UserCreate" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "User created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/User" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users/{userId}": {
+      "get": {
+        "tags": ["Users"],
+        "summary": "Get user",
+        "parameters": [
+          { "$ref": "#/components/parameters/UserId" }
+        ],
+        "responses": {
+          "200": {
+            "description": "User",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/User" }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": ["Users"],
+        "summary": "Update user",
+        "parameters": [
+          { "$ref": "#/components/parameters/UserId" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UserUpdate" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "User updated",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/User" }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Users"],
+        "summary": "Delete user",
+        "parameters": [
+          { "$ref": "#/components/parameters/UserId" }
+        ],
+        "responses": {
+          "204": { "description": "User deleted" }
+        }
+      }
+    },
+
+    "/sessions": {
+      "post": {
+        "tags": ["Sessions"],
+        "summary": "Create session (login)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SessionCreate" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Session created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Session" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sessions/{sessionId}": {
+      "get": {
+        "tags": ["Sessions"],
+        "summary": "Get session",
+        "parameters": [
+          { "$ref": "#/components/parameters/SessionId" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Session",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Session" }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Sessions"],
+        "summary": "Delete session (logout)",
+        "parameters": [
+          { "$ref": "#/components/parameters/SessionId" }
+        ],
+        "responses": {
+          "204": { "description": "Session deleted" }
+        }
+      }
+    },
+
+    "/guilds": {
+      "get": {
+        "tags": ["Guilds"],
+        "summary": "List guilds",
+        "responses": {
+          "200": {
+            "description": "List of guilds",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/Guild" }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Guilds"],
+        "summary": "Create guild (bakery)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/GuildCreate" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Guild created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Guild" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/guilds/{guildId}": {
+      "get": {
+        "tags": ["Guilds"],
+        "summary": "Get guild",
+        "parameters": [
+          { "$ref": "#/components/parameters/GuildId" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Guild",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Guild" }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": ["Guilds"],
+        "summary": "Update guild",
+        "parameters": [
+          { "$ref": "#/components/parameters/GuildId" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/GuildUpdate" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Guild updated",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Guild" }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Guilds"],
+        "summary": "Delete guild",
+        "parameters": [
+          { "$ref": "#/components/parameters/GuildId" }
+        ],
+        "responses": {
+          "204": { "description": "Guild deleted" }
+        }
+      }
+    },
+
+    "/guilds/{guildId}/invites": {
+      "post": {
+        "tags": ["Invites"],
+        "summary": "Create invite link",
+        "parameters": [
+          { "$ref": "#/components/parameters/GuildId" }
+        ],
+        "responses": {
+          "201": {
+            "description": "Invite created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Invite" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/invites/{inviteCode}/join": {
+      "post": {
+        "tags": ["Invites"],
+        "summary": "Join guild via invite",
+        "parameters": [
+          {
+            "name": "inviteCode",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Joined guild" }
+        }
+      }
+    },
+    "/guilds/{guildId}/leave": {
+      "post": {
+        "tags": ["Invites"],
+        "summary": "Leave guild",
+        "parameters": [
+          { "$ref": "#/components/parameters/GuildId" }
+        ],
+        "responses": {
+          "200": { "description": "Left guild" }
+        }
+      }
+    },
+
+    "/memberships": {
+      "get": {
+        "tags": ["Memberships"],
+        "summary": "List memberships",
+        "responses": {
+          "200": {
+            "description": "List of memberships",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/Membership" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/memberships/{membershipId}": {
+      "get": {
+        "tags": ["Memberships"],
+        "summary": "Get membership",
+        "parameters": [
+          { "$ref": "#/components/parameters/MembershipId" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Membership",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Membership" }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Memberships"],
+        "summary": "Delete membership",
+        "parameters": [
+          { "$ref": "#/components/parameters/MembershipId" }
+        ],
+        "responses": {
+          "204": { "description": "Membership deleted" }
+        }
+      }
+    },
+
+    "/guilds/{guildId}/roles": {
+      "get": {
+        "tags": ["Roles"],
+        "summary": "List roles in guild",
+        "parameters": [
+          { "$ref": "#/components/parameters/GuildId" }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of roles",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/Role" }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Roles"],
+        "summary": "Create role in guild",
+        "parameters": [
+          { "$ref": "#/components/parameters/GuildId" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/RoleCreate" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Role created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Role" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/guilds/{guildId}/roles/{roleId}": {
+      "put": {
+        "tags": ["Roles"],
+        "summary": "Update role",
+        "parameters": [
+          { "$ref": "#/components/parameters/GuildId" },
+          { "$ref": "#/components/parameters/RoleId" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/RoleUpdate" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Role updated",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Role" }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Roles"],
+        "summary": "Delete role",
+        "parameters": [
+          { "$ref": "#/components/parameters/GuildId" },
+          { "$ref": "#/components/parameters/RoleId" }
+        ],
+        "responses": {
+          "204": { "description": "Role deleted" }
+        }
+      }
+    }
+  },
+
+  "components": {
+    "parameters": {
+      "UserId": {
+        "name": "userId",
+        "in": "path",
+        "required": true,
+        "schema": { "type": "string", "format": "uuid" }
+      },
+      "SessionId": {
+        "name": "sessionId",
+        "in": "path",
+        "required": true,
+        "schema": { "type": "string", "format": "uuid" }
+      },
+      "GuildId": {
+        "name": "guildId",
+        "in": "path",
+        "required": true,
+        "schema": { "type": "string", "format": "uuid" }
+      },
+      "MembershipId": {
+        "name": "membershipId",
+        "in": "path",
+        "required": true,
+        "schema": { "type": "string", "format": "uuid" }
+      },
+      "RoleId": {
+        "name": "roleId",
+        "in": "path",
+        "required": true,
+        "schema": { "type": "string", "format": "uuid" }
+      }
+    },
+    "schemas": {
+      "User": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "email": { "type": "string", "format": "email" },
+          "name": { "type": "string" },
+          "createdAt": { "type": "string", "format": "date-time" }
+        },
+        "required": ["id", "email", "name", "createdAt"]
+      },
+      "UserCreate": {
+        "type": "object",
+        "properties": {
+          "email": { "type": "string", "format": "email" },
+          "name": { "type": "string" },
+          "password": { "type": "string", "minLength": 8 }
+        },
+        "required": ["email", "name", "password"]
+      },
+      "UserUpdate": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" }
+        }
+      },
+
+      "Session": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "userId": { "type": "string", "format": "uuid" },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "expiresAt": { "type": "string", "format": "date-time" }
+        },
+        "required": ["id", "userId", "createdAt", "expiresAt"]
+      },
+      "SessionCreate": {
+        "type": "object",
+        "properties": {
+          "email": { "type": "string", "format": "email" },
+          "password": { "type": "string" }
+        },
+        "required": ["email", "password"]
+      },
+
+      "Guild": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "name": { "type": "string" },
+          "slug": { "type": "string" },
+          "createdAt": { "type": "string", "format": "date-time" }
+        },
+        "required": ["id", "name", "slug", "createdAt"]
+      },
+      "GuildCreate": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" }
+        },
+        "required": ["name"]
+      },
+      "GuildUpdate": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" }
+        }
+      },
+
+      "Invite": {
+        "type": "object",
+        "properties": {
+          "code": { "type": "string" },
+          "guildId": { "type": "string", "format": "uuid" },
+          "expiresAt": { "type": "string", "format": "date-time" }
+        },
+        "required": ["code", "guildId"]
+      },
+
+      "Membership": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "userId": { "type": "string", "format": "uuid" },
+          "guildId": { "type": "string", "format": "uuid" },
+          "roleIds": {
+            "type": "array",
+            "items": { "type": "string", "format": "uuid" }
+          },
+          "createdAt": { "type": "string", "format": "date-time" }
+        },
+        "required": ["id", "userId", "guildId", "createdAt"]
+      },
+
+      "Role": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "guildId": { "type": "string", "format": "uuid" },
+          "name": { "type": "string" },
+          "permissions": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        },
+        "required": ["id", "guildId", "name"]
+      },
+      "RoleCreate": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "permissions": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        },
+        "required": ["name"]
+      },
+      "RoleUpdate": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "permissions": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    }
+  }
+}

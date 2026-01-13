@@ -1,226 +1,75 @@
-<script module>
-	const sampleData = {
-		navMain: [
-			{
-				title: 'Getting Started',
-				url: '#',
-				items: [
-					{
-						title: 'Installation',
-						url: '#'
-					},
-					{
-						title: 'Project Structure',
-						url: '#'
-					}
-				]
-			},
-			{
-				title: 'Building Your Application',
-				url: '#',
-				items: [
-					{
-						title: 'Routing',
-						url: '#'
-					},
-					{
-						title: 'Data Fetching',
-						url: '#',
-						isActive: true
-					},
-					{
-						title: 'Rendering',
-						url: '#'
-					},
-					{
-						title: 'Caching',
-						url: '#'
-					},
-					{
-						title: 'Styling',
-						url: '#'
-					},
-					{
-						title: 'Optimizing',
-						url: '#'
-					},
-					{
-						title: 'Configuring',
-						url: '#'
-					},
-					{
-						title: 'Testing',
-						url: '#'
-					},
-					{
-						title: 'Authentication',
-						url: '#'
-					},
-					{
-						title: 'Deploying',
-						url: '#'
-					},
-					{
-						title: 'Upgrading',
-						url: '#'
-					},
-					{
-						title: 'Examples',
-						url: '#'
-					}
-				]
-			},
-			{
-				title: 'API Reference',
-				url: '#',
-				items: [
-					{
-						title: 'Components',
-						url: '#'
-					},
-					{
-						title: 'File Conventions',
-						url: '#'
-					},
-					{
-						title: 'Functions',
-						url: '#'
-					},
-					{
-						title: 'next.config.js Options',
-						url: '#'
-					},
-					{
-						title: 'CLI',
-						url: '#'
-					},
-					{
-						title: 'Edge Runtime',
-						url: '#'
-					}
-				]
-			},
-			{
-				title: 'Architecture',
-				url: '#',
-				items: [
-					{
-						title: 'Accessibility',
-						url: '#'
-					},
-					{
-						title: 'Fast Refresh',
-						url: '#'
-					},
-					{
-						title: 'Next.js Compiler',
-						url: '#'
-					},
-					{
-						title: 'Supported Browsers',
-						url: '#'
-					},
-					{
-						title: 'Turbopack',
-						url: '#'
-					}
-				]
-			},
-			{
-				title: 'Community',
-				url: '#',
-				items: [
-					{
-						title: 'Contribution Guide',
-						url: '#'
-					}
-				]
-			}
-		]
-	};
-</script>
-
 <script>
 	import { page } from '$app/state';
 	import SearchForm from './search-form.svelte';
 	import * as Collapsible from '$lib/components/ui/collapsible/index.js';
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
-	import { getOperations, getSpecMeta } from '$lib/api/openapi.js';
+	import { getTags, getEndpointsByTag, specs } from '$lib/api/openapi.js';
+	import { Badge } from '$lib/components/ui/badge';
+
 	import GalleryVerticalEndIcon from '@lucide/svelte/icons/gallery-vertical-end';
 	import MinusIcon from '@lucide/svelte/icons/minus';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 
-	let { ref = $bindable(null), spec = null, ...restProps } = $props();
+	let { ref = $bindable(null), ...restProps } = $props();
 
-	const meta = $derived(spec ? getSpecMeta(spec) : null);
-	const operations = $derived(spec ? getOperations(spec) : []);
-	const displayTitle = $derived(meta?.title ?? 'Documentation');
-	const displayVersion = $derived(meta?.version ? `v${meta.version}` : 'v1.0.0');
 	const pathname = $derived(page.url.pathname);
 
 	let query = $state('');
-	const filteredOperations = $derived.by(() => {
-		if (!query.trim()) return operations;
-		const needle = query.trim().toLowerCase();
-		return operations.filter((operation) => {
-			return (
-				operation.path.toLowerCase().includes(needle) ||
-				operation.summary.toLowerCase().includes(needle) ||
-				operation.operationId.toLowerCase().includes(needle) ||
-				operation.tags.some((tag) => tag.toLowerCase().includes(needle))
-			);
-		});
-	});
-	const navMain = $derived.by(
-		() => buildNav(filteredOperations, pathname, Boolean(spec)) ?? sampleData.navMain
-	);
 
-	function buildNav(operationsList, activePath, hasSpec) {
-		if (!hasSpec) return null;
-		const groups = new Map();
+	/* =========================
+	   Derived OpenAPI data
+	========================= */
 
-		const docsItems = [
-			{
-				title: 'Overview',
-				url: '/',
-				isActive: activePath === '/'
-			},
-			{
-				title: 'API Reference',
-				url: '/reference',
-				isActive: activePath === '/reference' || activePath.startsWith('/reference/')
-			},
-			{
-				title: 'Schemas',
-				url: '/schemas',
-				isActive: activePath === '/schemas'
-			},
-			{
-				title: 'Client',
-				url: '/client',
-				isActive: activePath === '/client'
-			}
-		];
+	const tags = $derived(specs ? getTags(specs) : []);
+	const endpointsByTag = $derived(specs ? getEndpointsByTag(specs) : {});
 
-		groups.set('Documentation', docsItems);
+	const displayTitle = $derived(specs?.info?.title ?? 'Documentation');
+	const displayVersion = $derived(specs?.info?.version ? `v${specs.info.version}` : 'v1.0.0');
 
-		for (const operation of operationsList) {
-			const tag = operation.tags[0] ?? 'default';
-			if (!groups.has(tag)) groups.set(tag, []);
-			groups.get(tag).push({
-				title: operation.summary || operation.operationId,
-				url: `/reference/${encodeURIComponent(operation.operationId)}`,
-				method: operation.method.toUpperCase(),
-				isActive: activePath === `/reference/${encodeURIComponent(operation.operationId)}`
+	/* =========================
+	   Filtered nav
+	========================= */
+
+	const navMain = $derived.by(() => {
+		if (!specs) return [];
+
+		const result = [];
+
+		for (const [tag, endpoints] of Object.entries(endpointsByTag)) {
+			const filtered = endpoints.filter((op) => {
+				if (!query.trim()) return true;
+				const needle = query.toLowerCase();
+
+				return (
+					op.path.toLowerCase().includes(needle) ||
+					op.summary.toLowerCase().includes(needle) ||
+					op.method.toLowerCase().includes(needle)
+				);
+			});
+
+			if (!filtered.length) continue;
+
+			result.push({
+				title: tag,
+				url: `#${slugify(tag)}`,
+				isOpen: filtered.some((item) => pathname === buildEndpointUrl(item)),
+				items: filtered.map((op) => ({
+					title: op.summary || `${op.method} ${op.path}`,
+					url: buildEndpointUrl(op),
+					method: op.method,
+					isActive: pathname === buildEndpointUrl(op)
+				}))
 			});
 		}
 
-		return Array.from(groups.entries()).map(([tag, items]) => ({
-			title: tag,
-			url: `#${slugify(tag)}`,
-			items,
-			isOpen: items.some((item) => item.isActive)
-		}));
+		return result;
+	});
+
+	function buildEndpointUrl(op) {
+		// You can change this to match your routing strategy
+		// Example: /reference/GET/guilds
+		const safePath = op.path.replace(/\//g, '_').replace(/^_/, '');
+		return `/reference/${op.method}/${safePath}`;
 	}
 
 	function slugify(value) {
@@ -236,6 +85,8 @@
 				return 'text-emerald-400';
 			case 'POST':
 				return 'text-sky-400';
+			case 'PUT':
+				return 'text-indigo-400';
 			case 'PATCH':
 				return 'text-amber-400';
 			case 'DELETE':
@@ -252,7 +103,7 @@
 			<Sidebar.MenuItem>
 				<Sidebar.MenuButton size="lg">
 					{#snippet child({ props })}
-						<a href="##" {...props}>
+						<a href="/" {...props}>
 							<div
 								class="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground"
 							>
@@ -267,8 +118,10 @@
 				</Sidebar.MenuButton>
 			</Sidebar.MenuItem>
 		</Sidebar.Menu>
+
 		<SearchForm bind:value={query} />
 	</Sidebar.Header>
+
 	<Sidebar.Content>
 		<Sidebar.Group>
 			<Sidebar.Menu>
@@ -284,15 +137,26 @@
 									</Sidebar.MenuButton>
 								{/snippet}
 							</Collapsible.Trigger>
+
 							{#if item.items?.length}
 								<Collapsible.Content>
 									<Sidebar.MenuSub>
-										{#each item.items as subItem (subItem.title)}
+										{#each item.items as subItem (subItem.url)}
 											<Sidebar.MenuSubItem>
 												<Sidebar.MenuSubButton isActive={subItem.isActive}>
 													{#snippet child({ props })}
-														<a href={subItem.url} {...props}>{subItem.title}</a>
+														<a
+															{...props}
+															href={subItem.url}
+															class="flex justify-between py-0.5 text-sm"
+														>
+															{subItem.title}
+															<Badge variant="outline" class={methodClass(subItem.method)}
+																>{subItem.method}</Badge
+															>
+														</a>
 													{/snippet}
+
 													{#if subItem.method}
 														<Sidebar.MenuBadge class={methodClass(subItem.method)}>
 															{subItem.method}
@@ -310,5 +174,6 @@
 			</Sidebar.Menu>
 		</Sidebar.Group>
 	</Sidebar.Content>
+
 	<Sidebar.Rail />
 </Sidebar.Root>
