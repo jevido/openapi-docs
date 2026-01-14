@@ -1,12 +1,13 @@
 <script>
 	import { page } from '$app/state';
-	import { specs, getEndpointsByTag, getEndpointDoc } from '$lib/api/openapi.js';
+	import { specs, getEndpointsByTag, getEndpointDoc, getServerUrl } from '$lib/api/openapi.js';
 
 	import { Card, CardContent, CardHeader, CardTitle } from '$lib/components/ui/card/index.js';
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { Separator } from '$lib/components/ui/separator/index.js';
 	import * as Tabs from '$lib/components/ui/tabs/index.js';
 	import * as Table from '$lib/components/ui/table/index.js';
+	import EndpointClientDialog from '$lib/components/endpoint-client-dialog.svelte';
 	import SchemaViewer from '$lib/components/schema-viewer.svelte';
 
 	const currentTag = $derived(page.params.tag);
@@ -32,32 +33,39 @@
 				return 'bg-muted text-muted-foreground';
 		}
 	}
+
+	function endpointBaseUrl(endpoint) {
+		return getServerUrl(specs, endpoint.path, endpoint.method) || page.url.origin;
+	}
 </script>
 
 {#if !endpoints?.length}
 	<div class="text-muted-foreground">No endpoints found for tag "{currentTag}".</div>
 {:else}
 	{#each endpoints as endpoint}
-		<div id={`${endpoint.path}-${endpoint.method}`} class="space-y-4">
-			<!-- Endpoint Card -->
-			<Card class="border border-border bg-background/50 shadow-sm">
-				<CardHeader class="flex items-center justify-between gap-4">
-					<div class="flex items-center gap-3">
-						<Badge variant="outline" class={methodClass(endpoint.method)}>
-							{endpoint.method}
-						</Badge>
-						<h2 class="text-lg font-semibold">{endpoint.path}</h2>
-					</div>
-					{#if endpoint.summary}
-						<p class="text-sm text-muted-foreground">{endpoint.summary}</p>
-					{/if}
-				</CardHeader>
+		{#await Promise.resolve(getEndpointDoc(specs, endpoint.path, endpoint.method)) then doc}
+			<div id={`${endpoint.path}-${endpoint.method}`} class="space-y-4">
+				<!-- Endpoint Card -->
+				<Card class="border border-border bg-background/50 shadow-sm">
+					<CardHeader class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+						<div class="flex items-center gap-3">
+							<Badge variant="outline" class={methodClass(endpoint.method)}>
+								{endpoint.method}
+							</Badge>
+							<h2 class="text-lg font-semibold">{endpoint.path}</h2>
+						</div>
+						<div class="flex flex-wrap items-center gap-3">
+							{#if endpoint.summary}
+								<p class="text-sm text-muted-foreground">{endpoint.summary}</p>
+							{/if}
+							<EndpointClientDialog {endpoint} {doc} baseUrl={endpointBaseUrl(endpoint)} />
+						</div>
+					</CardHeader>
 
-				<CardContent class="space-y-4">
-					<Separator class="my-0" />
+					<CardContent class="space-y-4">
+						<Separator class="my-0" />
 
-					<!-- Parameters -->
-					{#await Promise.resolve(getEndpointDoc(specs, endpoint.path, endpoint.method)) then doc}
+						<!-- Parameters -->
 						{#if doc?.parameters?.length}
 							<Card class="border border-muted/20 bg-muted/5 p-3">
 								<CardHeader>
@@ -127,11 +135,11 @@
 								</CardContent>
 							</Card>
 						{/if}
-					{/await}
-				</CardContent>
-			</Card>
+					</CardContent>
+				</Card>
 
-			<Separator class="my-4" />
-		</div>
+				<Separator class="my-4" />
+			</div>
+		{/await}
 	{/each}
 {/if}

@@ -76,6 +76,65 @@ export function getOperation(openapi, path, method) {
 }
 
 /* ================================
+   Server helpers
+================================ */
+
+function resolveServerUrl(server) {
+	if (!server?.url) return '';
+
+	let url = server.url;
+	const variables = server.variables || {};
+
+	for (const [name, config] of Object.entries(variables)) {
+		const value = config?.default ?? config?.enum?.[0];
+		if (value != null) {
+			url = url.replace(`{${name}}`, value);
+		}
+	}
+
+	return url;
+}
+
+export function getServerUrl(openapi, path, method) {
+	const op = openapi.paths?.[path]?.[method.toLowerCase()];
+	const pathItem = openapi.paths?.[path];
+	const server = op?.servers?.[0] || pathItem?.servers?.[0] || openapi.servers?.[0];
+
+	return resolveServerUrl(server);
+}
+
+export function schemaToExample(schema) {
+	if (!schema) return null;
+
+	if (schema.example != null) return schema.example;
+	if (schema.default != null) return schema.default;
+	if (schema.enum?.length) return schema.enum[0];
+
+	if (schema.oneOf?.length) return schemaToExample(schema.oneOf[0]);
+	if (schema.anyOf?.length) return schemaToExample(schema.anyOf[0]);
+	if (schema.allOf?.length) return schemaToExample(schema.allOf[0]);
+
+	if (schema.type === 'object') {
+		const obj = {};
+		for (const [key, value] of Object.entries(schema.properties || {})) {
+			obj[key] = schemaToExample(value);
+		}
+		return obj;
+	}
+
+	if (schema.type === 'array') {
+		const itemExample = schemaToExample(schema.items);
+		return itemExample == null ? [] : [itemExample];
+	}
+
+	if (schema.type === 'boolean') return false;
+	if (schema.type === 'integer' || schema.type === 'number') return 0;
+	if (schema.type === 'string') return 'string';
+
+	return null;
+}
+
+/* ================================
    $ref resolver
 ================================ */
 
