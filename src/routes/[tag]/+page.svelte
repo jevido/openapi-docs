@@ -39,10 +39,14 @@
 	}
 </script>
 
+<svelte:head>
+	<title>{currentTag ? `${currentTag} API` : 'API'}</title>
+</svelte:head>
+
 {#if !endpoints?.length}
 	<div class="text-muted-foreground">No endpoints found for tag "{currentTag}".</div>
 {:else}
-	{#each endpoints as endpoint}
+	{#each endpoints as endpoint (endpoint.path + endpoint.method)}
 		{#await Promise.resolve(getEndpointDoc(specs, endpoint.path, endpoint.method)) then doc}
 			<div id={`${endpoint.path}-${endpoint.method}`} class="space-y-4">
 				<!-- Endpoint Card -->
@@ -83,7 +87,7 @@
 											</Table.Row>
 										</Table.Header>
 										<Table.Body>
-											{#each doc.parameters as param}
+											{#each doc.parameters as param (param.name + param.in)}
 												<Table.Row>
 													<Table.Cell class="font-mono text-sm">{param.name}</Table.Cell>
 													<Table.Cell>{param.in}</Table.Cell>
@@ -121,12 +125,12 @@
 								<CardContent class="p-0">
 									<Tabs.Root value={Object.keys(doc.responseSchemas)[0]}>
 										<Tabs.List class="mb-2">
-											{#each Object.keys(doc.responseSchemas) as status}
+											{#each Object.keys(doc.responseSchemas) as status (status)}
 												<Tabs.Trigger value={status}>{status}</Tabs.Trigger>
 											{/each}
 										</Tabs.List>
 
-										{#each Object.entries(doc.responseSchemas) as [status, schema]}
+										{#each Object.entries(doc.responseSchemas) as [status, schema] (status)}
 											<Tabs.Content value={status}>
 												<SchemaViewer {schema} />
 											</Tabs.Content>
