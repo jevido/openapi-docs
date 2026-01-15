@@ -13,6 +13,7 @@
 	import { Separator } from '$lib/components/ui/separator/index.js';
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 	import { initOpenApi, openapiStatus } from '$lib/stores/openapi.js';
+	import Button from '$lib/components/ui/button/button.svelte';
 
 	let { children } = $props();
 
@@ -83,17 +84,7 @@
 			</Breadcrumb.Root>
 
 			<div class="ms-auto flex items-center gap-2">
-				<Menubar.Root>
-					<Menubar.Menu>
-						<Menubar.Trigger>Menu</Menubar.Trigger>
-						<Menubar.Content>
-							<Menubar.Item onclick={() => commandMenuOpen.set(true)}>
-								Command Menu
-								<Menubar.Shortcut>Ctrl+K</Menubar.Shortcut>
-							</Menubar.Item>
-						</Menubar.Content>
-					</Menubar.Menu>
-				</Menubar.Root>
+				<Button variant="outline" onclick={() => commandMenuOpen.set(true)}>Menu</Button>
 			</div>
 		</header>
 
