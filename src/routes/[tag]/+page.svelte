@@ -1,13 +1,13 @@
 <script>
 	import { page } from '$app/state';
 	import {
-		specs,
 		getEndpointsByTag,
 		getEndpointDoc,
 		getServerUrl,
 		getTag,
 		schemaToExample
 	} from '$lib/api/openapi.js';
+	import { activeOpenApiSource, openapiSpecs } from '$lib/stores/openapi.js';
 
 	import { Card, CardContent, CardHeader, CardTitle } from '$lib/components/ui/card/index.js';
 	import { Badge } from '$lib/components/ui/badge/index.js';
@@ -15,17 +15,19 @@
 	import * as Tabs from '$lib/components/ui/tabs/index.js';
 	import * as Table from '$lib/components/ui/table/index.js';
 	import EndpointClientDialog from '$lib/components/endpoint-client-dialog.svelte';
+	import Markdown from '$lib/components/markdown.svelte';
 	import SchemaViewer from '$lib/components/schema-viewer.svelte';
 
 	const currentTag = $derived(page.params.tag);
+	const specUrl = $derived.by(() => $activeOpenApiSource?.url ?? '');
 	const tagInfo = $derived.by(() => {
-		if (!specs || !currentTag) return null;
-		return getTag(specs, currentTag);
+		if (!$openapiSpecs || !currentTag) return null;
+		return getTag($openapiSpecs, currentTag);
 	});
 
 	const endpoints = $derived.by(() => {
-		if (!specs || !currentTag) return [];
-		return getEndpointsByTag(specs)[currentTag] ?? [];
+		if (!$openapiSpecs || !currentTag) return [];
+		return getEndpointsByTag($openapiSpecs)[currentTag] ?? [];
 	});
 
 	function methodClass(method) {
@@ -46,7 +48,7 @@
 	}
 
 	function endpointBaseUrl(endpoint) {
-		return getServerUrl(specs, endpoint.path, endpoint.method) || page.url.origin;
+		return getServerUrl($openapiSpecs, endpoint.path, endpoint.method) || page.url.origin;
 	}
 
 	function formatSchemaType(schema) {
@@ -123,7 +125,7 @@
 		return [
 			'import { createSDK } from "jevido-sdk";',
 			'',
-			`const sdk = await createSDK("/openapi.json"${optionsBlock});`,
+			`const sdk = await createSDK("${specUrl}"${optionsBlock});`,
 			'',
 			`const result = await ${callLine};`
 		].join('\n');
@@ -150,12 +152,12 @@
 				<CardTitle>{tagInfo.name}</CardTitle>
 			</CardHeader>
 			<CardContent>
-				<p class="text-sm text-muted-foreground">{tagInfo.description}</p>
+				<Markdown content={tagInfo.description} />
 			</CardContent>
 		</Card>
 	{/if}
 	{#each endpoints as endpoint (endpoint.path + endpoint.method)}
-		{#await Promise.resolve(getEndpointDoc(specs, endpoint.path, endpoint.method)) then doc}
+		{#await Promise.resolve(getEndpointDoc($openapiSpecs, endpoint.path, endpoint.method)) then doc}
 			{@const requestExample = getRequestExample(doc)}
 			{@const sdkSnippet = buildSdkSnippet(endpoint, endpointBaseUrl(endpoint), requestExample)}
 			<div id={`${endpoint.path}-${endpoint.method}`} class="space-y-6">
@@ -179,13 +181,18 @@
 							{#if endpoint.summary}
 								<p class="text-sm text-muted-foreground">{endpoint.summary}</p>
 							{/if}
-							<EndpointClientDialog {endpoint} {doc} baseUrl={endpointBaseUrl(endpoint)} />
+							<EndpointClientDialog
+								{endpoint}
+								{doc}
+								baseUrl={endpointBaseUrl(endpoint)}
+								specUrl={specUrl}
+							/>
 						</div>
 					</CardHeader>
 
 					<CardContent class="space-y-6">
 						{#if doc?.description}
-							<p class="text-sm text-muted-foreground">{doc.description}</p>
+							<Markdown content={doc.description} />
 						{/if}
 
 						<div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,440px)]">
@@ -273,7 +280,7 @@
 										<div class="mt-3 space-y-3">
 											{#each doc.securityRequirements as requirement, index (index)}
 												<div class="space-y-3 rounded-md border border-border bg-muted/10 p-3">
-													<div class="text-[11px] tracking-[0.2em] text-muted-foreground uppercase">
+													<div class="text-xs tracking-[0.2em] text-muted-foreground uppercase">
 														Requirement {index + 1}
 													</div>
 													{#if !requirement.schemes?.length}
@@ -376,7 +383,7 @@
 															{#if content.examples?.length}
 																<div class="space-y-2">
 																	<div
-																		class="text-[11px] tracking-[0.2em] text-muted-foreground uppercase"
+																		class="text-xs tracking-[0.2em] text-muted-foreground uppercase"
 																	>
 																		Examples
 																	</div>
@@ -392,7 +399,7 @@
 																			</a>
 																		{:else}
 																			<pre
-																				class="rounded-md border border-border bg-muted/40 p-3 text-[11px] leading-relaxed text-foreground">
+																				class="rounded-md border border-border bg-muted/40 p-3 text-xs leading-relaxed text-foreground">
 {formatExampleValue(content.examples[0].value)}
 																			</pre>
 																		{/if}
@@ -433,7 +440,7 @@
 																						</a>
 																					{:else}
 																						<pre
-																							class="rounded-md border border-border bg-muted/40 p-3 text-[11px] leading-relaxed text-foreground">
+																							class="rounded-md border border-border bg-muted/40 p-3 text-xs leading-relaxed text-foreground">
 {formatExampleValue(example.value)}
 																						</pre>
 																					{/if}
@@ -470,13 +477,13 @@
 											</Badge>
 											<span class="font-mono">{endpoint.path}</span>
 										</div>
-										<span class="text-[11px] tracking-[0.2em] text-muted-foreground uppercase">
+										<span class="text-xs tracking-[0.2em] text-muted-foreground uppercase">
 											Request
 										</span>
 									</summary>
 									<div class="p-4">
 										<pre
-											class="overflow-auto rounded-md border border-border bg-muted/40 p-3 text-[11px] leading-relaxed text-foreground">
+											class="overflow-auto rounded-md border border-border bg-muted/40 p-3 text-xs leading-relaxed text-foreground">
 {sdkSnippet}
 										</pre>
 									</div>
@@ -489,7 +496,7 @@
 									<summary
 										class="flex cursor-pointer items-center justify-between border-b border-border px-4 py-3"
 									>
-										<span class="text-[11px] tracking-[0.2em] text-muted-foreground uppercase">
+										<span class="text-xs tracking-[0.2em] text-muted-foreground uppercase">
 											Response
 										</span>
 									</summary>
@@ -507,7 +514,7 @@
 													<Tabs.Content value={status}>
 														{#if responseExample}
 															<pre
-																class="rounded-md border border-border bg-muted/40 p-3 text-[11px] leading-relaxed text-foreground">
+																class="rounded-md border border-border bg-muted/40 p-3 text-xs leading-relaxed text-foreground">
 {responseExample}
 															</pre>
 														{:else}

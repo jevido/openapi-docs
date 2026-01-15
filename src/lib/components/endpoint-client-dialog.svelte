@@ -6,7 +6,7 @@
 	import * as Accordion from '$lib/components/ui/accordion/index.js';
 	import * as InputGroup from '$lib/components/ui/input-group/index.js';
 	import { schemaToExample } from '$lib/api/openapi.js';
-	let { endpoint, doc, baseUrl } = $props();
+	let { endpoint, doc, baseUrl, specUrl = '' } = $props();
 
 	let open = $state(false);
 	let bearerToken = $state('');
@@ -230,7 +230,7 @@
 		return [
 			'import { createSDK } from "jevido-sdk";',
 			'',
-			`const sdk = await createSDK("/openapi.json"${optionsBlock});`,
+			`const sdk = await createSDK("${specUrl}"${optionsBlock});`,
 			'',
 			`const result = await ${callLine};`
 		].join('\n');
@@ -487,7 +487,7 @@
 									Request Body
 								</Accordion.Trigger>
 								<Accordion.Content class="pt-1">
-									<div class="flex flex-wrap items-center gap-2 text-[11px]">
+									<div class="flex flex-wrap items-center gap-2 text-xs">
 										<Button size="sm" variant="ghost" onclick={() => formatBodyJson(2)}>
 											Format JSON
 										</Button>
@@ -501,7 +501,7 @@
 									</div>
 									<InputGroup.Root>
 										<InputGroup.Addon align="block-start">
-											<InputGroup.Text class="font-mono text-[10px] tracking-[0.2em] uppercase">
+											<InputGroup.Text class="font-mono text-xs tracking-[0.2em] uppercase">
 												JSON
 											</InputGroup.Text>
 										</InputGroup.Addon>
@@ -540,7 +540,7 @@
 										</Button>
 									</div>
 									<pre
-										class="overflow-auto rounded-md border border-border bg-muted/40 p-3 text-[11px] leading-relaxed text-muted-foreground">{sdkSnippet.trim()}</pre>
+										class="overflow-auto rounded-md border border-border bg-muted/40 p-3 text-xs leading-relaxed text-muted-foreground">{sdkSnippet.trim()}</pre>
 								</Accordion.Content>
 							</Accordion.Item>
 						</Accordion.Root>
@@ -564,11 +564,11 @@
 							</div>
 						{:else if responseText}
 							<div class="space-y-3">
-								<p class="text-[11px] tracking-[0.2em] text-muted-foreground uppercase">
+								<p class="text-xs tracking-[0.2em] text-muted-foreground uppercase">
 									{responseStatus}
 								</p>
 								<pre
-									class="rounded-md border border-border bg-muted/40 p-3 text-[11px] leading-relaxed text-foreground">
+									class="rounded-md border border-border bg-muted/40 p-3 text-xs leading-relaxed text-foreground">
 {responseText}
 								</pre>
 							</div>
@@ -576,7 +576,7 @@
 							<div
 								class="flex min-h-[360px] flex-col items-center justify-center gap-6 text-muted-foreground"
 							>
-								<pre class="text-[10px] leading-tight text-muted-foreground">
+								<pre class="text-xs leading-tight text-muted-foreground">
 ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣠⣤⣶⣲⣻⣿⢯⡿⣟⣿⣟⣶⣶⣤⣄⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
 ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⣤⢖⣿⡿⣷⢿⡻⣿⣽⡻⣽⡻⣽⣯⣿⣿⣿⣽⣿⣿⣿⣷⣦⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
 ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⣠⣴⢺⡝⣲⣟⡞⣟⢧⣻⣝⢮⣽⣳⢽⣹⢷⣿⡞⣿⡿⣿⣽⣿⣿⣿⣿⣿⣿⣶⣄⡀⠀⠀⠀⠀⠀⠀⠀⠀

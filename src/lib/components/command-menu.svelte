@@ -1,13 +1,17 @@
 <script>
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { specs, getEndpointsByTag } from '$lib/api/openapi.js';
+	import { getEndpointsByTag } from '$lib/api/openapi.js';
+	import { openapiSpecs, openapiStatus } from '$lib/stores/openapi.js';
 	import { commandMenuOpen } from '$lib/stores/command-menu.js';
 	import * as Command from '$lib/components/ui/command/index.js';
 
 	let query = $state('');
 
-	const endpointsByTag = $derived(specs ? getEndpointsByTag(specs) : {});
+	const endpointsByTag = $derived.by(() => {
+		if ($openapiStatus.state !== 'ready' || !$openapiSpecs) return {};
+		return getEndpointsByTag($openapiSpecs);
+	});
 
 	const tagItems = $derived.by(() => {
 		const result = [];

@@ -43,6 +43,7 @@
 		"vite": "^7.2.6"
 	},
 	"dependencies": {
-		"jevido-sdk": "^0.3.0"
+		"jevido-sdk": "^0.3.0",
+		"markdown-it": "^14.1.0"
 	}
 }

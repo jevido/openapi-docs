@@ -3,6 +3,7 @@
 	import favicon from '$lib/assets/favicon.svg';
 	import { ModeWatcher } from 'mode-watcher';
 	import { page } from '$app/state';
+	import { onMount } from 'svelte';
 
 	import AppSidebar from '$lib/components/app-sidebar.svelte';
 	import CommandMenu from '$lib/components/command-menu.svelte';
@@ -11,9 +12,13 @@
 	import * as Menubar from '$lib/components/ui/menubar/index.js';
 	import { Separator } from '$lib/components/ui/separator/index.js';
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
-	import { specs } from '$lib/api/openapi';
+	import { initOpenApi, openapiStatus } from '$lib/stores/openapi.js';
 
 	let { children } = $props();
+
+	onMount(() => {
+		initOpenApi();
+	});
 
 	/* =========================
 	   Breadcrumbs
@@ -95,7 +100,7 @@
 		<div
 			class="flex flex-1 flex-col gap-6 bg-linear-to-br from-background via-background to-muted/40 px-6 py-8"
 		>
-			{#if !specs}
+			{#if $openapiStatus.state === 'loading'}
 				<div class="text-muted-foreground">Loading API documentation…</div>
 			{:else}
 				{@render children()}

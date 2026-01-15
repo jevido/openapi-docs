@@ -503,5 +503,3 @@ export function getAllEndpoints(openapi) {
 export function getSchemas(openapi) {
 	return openapi.components?.schemas || {};
 }
-
-export const specs = await loadOpenApi('/openapi.json');

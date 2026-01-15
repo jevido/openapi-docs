@@ -124,3 +124,131 @@
 			'Liberation Mono', 'Courier New', monospace;
 	}
 }
+
+@layer components {
+	.markdown {
+		color: var(--muted-foreground);
+		font-size: 0.875rem;
+		line-height: 1.6;
+	}
+	.markdown > :first-child {
+		margin-top: 0;
+	}
+	.markdown > :last-child {
+		margin-bottom: 0;
+	}
+	.markdown h1,
+	.markdown h2,
+	.markdown h3,
+	.markdown h4,
+	.markdown h5,
+	.markdown h6 {
+		color: var(--foreground);
+		font-weight: 600;
+		line-height: 1.35;
+		margin: 1.1em 0 0.45em;
+	}
+	.markdown a {
+		color: var(--foreground);
+		text-decoration: underline;
+		text-underline-offset: 3px;
+	}
+	.markdown p {
+		margin: 0.6em 0;
+	}
+	.markdown ul,
+	.markdown ol {
+		margin: 0.6em 0;
+		padding-left: 1.4em;
+	}
+	.markdown li + li {
+		margin-top: 0.25em;
+	}
+	.markdown blockquote {
+		margin: 0.8em 0;
+		padding-left: 0.9em;
+		border-left: 2px solid var(--border);
+		color: var(--foreground);
+	}
+	.markdown pre {
+		background: var(--muted);
+		border: 1px solid var(--border);
+		border-radius: var(--radius-md);
+		padding: 0.85em 1em;
+		overflow-x: auto;
+	}
+	.markdown code {
+		background: color-mix(in oklch, var(--muted) 70%, transparent);
+		border-radius: var(--radius-sm);
+		padding: 0.15em 0.35em;
+		font-size: 0.85em;
+		font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
+			'Courier New', monospace;
+	}
+	.markdown pre code {
+		background: transparent;
+		padding: 0;
+		font-size: 0.85em;
+	}
+	.markdown table {
+		width: 100%;
+		border-collapse: collapse;
+		margin: 0.8em 0;
+	}
+	.markdown th,
+	.markdown td {
+		border: 1px solid var(--border);
+		padding: 0.5em 0.6em;
+		text-align: left;
+		vertical-align: top;
+	}
+	.markdown th {
+		color: var(--foreground);
+		background: var(--muted);
+		font-weight: 600;
+	}
+	.markdown details {
+		margin: 0.8em 0;
+		border: 1px solid var(--border);
+		border-radius: var(--radius-md);
+		padding: 0.6em 0.9em;
+		background: color-mix(in oklch, var(--muted) 70%, transparent);
+	}
+	.markdown details summary {
+		cursor: pointer;
+		font-weight: 600;
+		color: var(--foreground);
+	}
+	.markdown img {
+		max-width: 100%;
+		border-radius: var(--radius-md);
+		border: 1px solid var(--border);
+	}
+	.markdown .markdown-alert {
+		border: 1px solid var(--border);
+		border-left: 3px solid var(--chart-2);
+		background: color-mix(in oklch, var(--muted) 70%, transparent);
+		padding: 0.7em 0.9em;
+		border-radius: var(--radius-md);
+	}
+	.markdown .markdown-alert-title {
+		margin: 0 0 0.4em;
+		text-transform: uppercase;
+		letter-spacing: 0.08em;
+		font-size: 0.7em;
+		color: var(--foreground);
+	}
+	.markdown .markdown-alert-tip {
+		border-left-color: var(--chart-2);
+	}
+	.markdown .markdown-alert-note {
+		border-left-color: var(--chart-3);
+	}
+	.markdown .markdown-alert-important {
+		border-left-color: var(--chart-4);
+	}
+	.markdown .markdown-alert-warning,
+	.markdown .markdown-alert-caution {
+		border-left-color: var(--chart-1);
+	}
+}
