@@ -1,4 +1,6 @@
 <script>
+	import { page } from '$app/state';
+	import Editor from './editor.svelte';
 	import * as Dialog from '$lib/components/ui/dialog/index.js';
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
@@ -8,7 +10,6 @@
 	import * as InputGroup from '$lib/components/ui/input-group/index.js';
 	import { schemaToExample } from '$lib/api/openapi.js';
 	import { activeOpenApiSource, setOpenApiSourceProxy } from '$lib/stores/openapi.js';
-	import { page } from '$app/state';
 	let { endpoint, doc, baseUrl, specUrl = '' } = $props();
 
 	let open = $state(false);
@@ -290,13 +291,27 @@
 		}
 	}
 
+	function formatJson(text, spaces = 2) {
+		const parsed = JSON.parse(text);
+
+		return JSON.stringify(parsed, null, spaces);
+	}
+
 	function formatBodyJson(spaces = 2) {
 		bodyJsonError = '';
+
+		const snapshot = bodyTextValue;
+
 		try {
-			const parsed = JSON.parse(bodyTextValue);
-			const next = JSON.stringify(parsed, null, spaces);
-			bodyTextDraft = next;
-			bodyTextDirty = next !== bodyTextDefault;
+			let text = formatJson(bodyTextDefault, spaces);
+
+			if (spaces > 0) {
+				text = formatJson(text, spaces);
+			}
+
+			bodyTextDirty = snapshot !== text;
+			bodyTextDraft = text;
+			bodyTextValue = text;
 		} catch (error) {
 			bodyJsonError = error?.message ?? 'Invalid JSON.';
 		}
@@ -306,22 +321,6 @@
 		bodyTextDraft = bodyTextDefault;
 		bodyTextDirty = false;
 		bodyJsonError = '';
-	}
-
-	function handleBodyKeydown(event) {
-		if (event.key !== 'Tab') return;
-		event.preventDefault();
-		const textarea = event.currentTarget;
-		const start = textarea.selectionStart ?? 0;
-		const end = textarea.selectionEnd ?? 0;
-		const value = bodyTextValue;
-		const insert = '  ';
-		const next = value.slice(0, start) + insert + value.slice(end);
-		bodyTextDraft = next;
-		bodyTextDirty = true;
-		queueMicrotask(() => {
-			textarea.selectionStart = textarea.selectionEnd = start + insert.length;
-		});
 	}
 
 	async function sendRequest() {
@@ -401,10 +400,6 @@
 				<Button size="sm" onclick={sendRequest} disabled={loading}>
 					{loading ? 'Sending...' : 'Send'}
 				</Button>
-				<div class="flex items-center gap-2 text-xs text-muted-foreground">
-					<Checkbox id="proxy-requests" bind:checked={proxyEnabled} />
-					<Label for="proxy-requests" class="text-xs font-medium">Proxy via app</Label>
-				</div>
 			</div>
 		</div>
 
@@ -548,27 +543,15 @@
 											<span class="text-destructive">{bodyJsonError}</span>
 										{/if}
 									</div>
+
 									<InputGroup.Root>
 										<InputGroup.Addon align="block-start">
 											<InputGroup.Text class="font-mono text-xs tracking-[0.2em] uppercase">
 												JSON
 											</InputGroup.Text>
 										</InputGroup.Addon>
-										<InputGroup.Textarea
-											class="min-h-52 w-full resize-y bg-transparent font-mono text-xs text-foreground"
-											placeholder={'{}'}
-											value={bodyTextValue}
-											spellcheck="false"
-											autocomplete="off"
-											autocapitalize="off"
-											onkeydown={handleBodyKeydown}
-											oninput={(event) => {
-												const value = event.currentTarget.value;
-												bodyTextDraft = value;
-												bodyTextDirty = value !== bodyTextDefault;
-												bodyJsonError = '';
-											}}
-										/>
+
+										<Editor bind:value={bodyTextValue} handleSubmit={sendRequest} />
 									</InputGroup.Root>
 								</Accordion.Content>
 							</Accordion.Item>

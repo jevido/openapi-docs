@@ -155,17 +155,17 @@
 			<span
 				class="inline-flex size-5 items-center justify-center rounded border border-border/70 bg-background text-xs text-foreground"
 			>
-				<CornerDownLeftIcon class="size-3" />
+				<activeAction.icon class="size-3" />
 			</span>
-			Escape to close dialog
+			{activeAction.label}
 		</div>
 		<div class="flex items-center gap-2">
 			<span
 				class="inline-flex size-5 items-center justify-center rounded border border-border/70 bg-background text-xs text-foreground"
 			>
-				<svelte:component this={activeAction.icon} class="size-3" />
+				<CornerDownLeftIcon class="size-3" />
 			</span>
-			{activeAction.label}
+			Escape to close dialog
 		</div>
 	</div>
 </Command.Dialog>
