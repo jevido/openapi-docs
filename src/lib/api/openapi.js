@@ -200,21 +200,26 @@ export function expandSchema(openapi, schema) {
 ================================ */
 
 export function getParameters(openapi, operation) {
-	return (operation.parameters || []).map((param) => {
-		let schema = param.schema;
+	return (operation.parameters || [])
+		.map((param) => {
+			const resolvedParam = param?.$ref ? resolveRef(openapi, param.$ref) : param;
+			if (!resolvedParam) return null;
 
-		if (schema?.$ref) {
-			schema = resolveRef(openapi, schema.$ref);
-		}
+			let schema = resolvedParam.schema;
 
-		return {
-			name: param.name,
-			in: param.in,
-			required: param.required || false,
-			description: param.description || '',
-			schema
-		};
-	});
+			if (schema?.$ref) {
+				schema = resolveRef(openapi, schema.$ref);
+			}
+
+			return {
+				name: resolvedParam.name,
+				in: resolvedParam.in,
+				required: resolvedParam.required || false,
+				description: resolvedParam.description || '',
+				schema
+			};
+		})
+		.filter((param) => param?.name && param?.in);
 }
 
 /* ================================

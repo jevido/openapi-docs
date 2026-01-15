@@ -6,6 +6,7 @@
 	import * as Accordion from '$lib/components/ui/accordion/index.js';
 	import * as InputGroup from '$lib/components/ui/input-group/index.js';
 	import { schemaToExample } from '$lib/api/openapi.js';
+	import { SvelteMap } from 'svelte/reactivity';
 
 	let { endpoint, doc, baseUrl } = $props();
 
@@ -15,7 +16,8 @@
 	let responseStatus = $state('');
 	let errorText = $state('');
 	let loading = $state(false);
-	let requestAccordion = $state(['auth', 'query', 'headers', 'body', 'snippet']);
+	let responseDurationMs = $state(null);
+	let requestAccordion = $state(['query', 'body', 'snippet']);
 	let snippetCopied = $state(false);
 
 	function methodBadgeClass(method) {
@@ -50,10 +52,13 @@
 	let queryRows = $state([]);
 
 	let requestUrl = $derived.by(() => joinUrl(baseUrl, endpoint.path));
-	let requestUrlDraft = $state('');
-	let requestUrlDirty = $state(false);
-	let requestUrlValue = $derived.by(() => (requestUrlDirty ? requestUrlDraft : requestUrl));
-	let requestUrlWithParams = $derived.by(() => buildUrlWithParams(requestUrlValue, queryRows));
+	let pathParamKeys = $derived.by(() => {
+		const pathParams = endpoint.path.match(/{[^}]+}/g) ?? [];
+		return pathParams
+			.map((param) => param.slice(1, -1).trim())
+			.filter((key, index, list) => key && list.indexOf(key) === index);
+	});
+	let requestUrlWithParams = $derived(buildUrlWithParams(requestUrl, queryRows, pathParamKeys));
 
 	function addHeaderRow() {
 		headerRows.push({ id: ++rowId, key: '', value: '', enabled: true });
@@ -81,7 +86,6 @@
 				seen.push(key);
 				entries.push({ id: ++rowId, key, value: '', enabled: true });
 			});
-		entries.push({ id: ++rowId, key: '', value: '', enabled: true });
 		return entries;
 	}
 
@@ -92,16 +96,33 @@
 		}
 	}
 
-	function buildUrlWithParams(rawUrl, params) {
+	function buildUrlWithParams(rawUrl, params, pathParams = []) {
 		if (!rawUrl) return '';
 		try {
 			const hasProtocol = /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(rawUrl);
 			const base = hasProtocol ? undefined : 'http://placeholder';
-			const url = new URL(rawUrl, base);
+			const pathParamSet = new Set(pathParams);
+			const valueByKey = new SvelteMap();
 			params.forEach((row) => {
 				if (!row.enabled) return;
 				const key = row.key.trim();
 				if (!key) return;
+				valueByKey.set(key, row.value ?? '');
+			});
+
+			let resolvedUrl = rawUrl;
+			pathParams.forEach((key) => {
+				const value = valueByKey.get(key);
+				if (value === undefined || value === '') return;
+				resolvedUrl = resolvedUrl.replaceAll(`{${key}}`, value);
+			});
+
+			const url = new URL(resolvedUrl, base);
+			params.forEach((row) => {
+				if (!row.enabled) return;
+				const key = row.key.trim();
+				if (!key) return;
+				if (pathParamSet.has(key)) return;
 				url.searchParams.set(key, row.value ?? '');
 			});
 			const nextUrl = url.toString();
@@ -265,7 +286,9 @@
 		errorText = '';
 		responseText = '';
 		responseStatus = '';
+		responseDurationMs = null;
 
+		const start = performance.now();
 		const url = requestUrlWithParams.trim() || requestUrl;
 
 		const supportsBody = !['GET', 'HEAD'].includes(endpoint.method);
@@ -292,13 +315,25 @@
 			} catch {
 				responseText = text;
 			}
+			responseDurationMs = Math.round(performance.now() - start);
 		} catch (error) {
 			errorText = error?.message ?? 'Request failed.';
+			responseDurationMs = Math.round(performance.now() - start);
 		} finally {
 			loading = false;
 		}
 	}
+
+	function handleShortcut(event) {
+		if (!open || loading) return;
+		if (event.key === 'Enter' && event.ctrlKey) {
+			event.preventDefault();
+			sendRequest();
+		}
+	}
 </script>
+
+<svelte:window onkeydown={handleShortcut} />
 
 <Dialog.Root bind:open>
 	<Button
@@ -307,6 +342,7 @@
 		class="gap-2"
 		onclick={() => {
 			queryRows = createInitialQueryRows();
+			requestAccordion = ['query', 'body', 'snippet'];
 			open = true;
 		}}
 	>
@@ -326,13 +362,9 @@
 						</InputGroup.Addon>
 						<InputGroup.Input
 							class="text-xs text-foreground"
-							value={requestUrlValue}
+							value={decodeURIComponent(requestUrlWithParams) || requestUrl}
 							placeholder={requestUrl}
-							oninput={(event) => {
-								const value = event.currentTarget.value;
-								requestUrlDraft = value;
-								requestUrlDirty = value !== requestUrl;
-							}}
+							readonly
 							onfocus={(event) => event.currentTarget?.select()}
 						/>
 					</InputGroup.Root>
@@ -350,8 +382,8 @@
 						Request Builder
 					</div>
 					<div class="h-auto flex-1 overflow-y-auto">
-						<!-- todo: this div needs to have a height defined -->
-						<div class="flex w-full space-y-2 px-6 py-4 text-xs text-muted-foreground">
+						<!-- todo: find out why h-[1px] gives auto height, h-auto doesnt -->
+						<div class="h-[1px] w-full space-y-2 px-6 py-4 text-xs text-muted-foreground">
 							<Accordion.Root type="multiple" bind:value={requestAccordion} class="space-y-2">
 								<Accordion.Item
 									value="auth"
@@ -406,18 +438,9 @@
 															bind:value={row.value}
 														/>
 													</InputGroup.Root>
-													<Button
-														size="icon-sm"
-														variant="ghost"
-														aria-label="Remove query parameter"
-														onclick={() => removeRow(queryRows, row.id)}
-													>
-														x
-													</Button>
 												</div>
 											{/each}
 										</div>
-										<Button size="sm" variant="ghost" onclick={addQueryRow}>Add parameter</Button>
 									</Accordion.Content>
 								</Accordion.Item>
 
@@ -611,15 +634,20 @@
 						</div>
 					</div>
 					<div
-						class="flex items-center justify-end gap-1 border-t border-border px-6 py-3 text-xs text-muted-foreground"
+						class="flex items-center justify-between gap-2 border-t border-border px-6 py-3 text-xs text-muted-foreground"
 					>
-						Send Request
-						<span class="rounded-md border border-border bg-muted px-2 py-1 text-foreground"
-							>Ctrl</span
-						>
-						<span class="rounded-md border border-border bg-muted px-2 py-1 text-foreground">
-							Enter
-						</span>
+						<div class="flex items-center gap-2">
+							Send Request
+							<span class="rounded-md border border-border bg-muted px-2 py-1 text-foreground"
+								>Ctrl</span
+							>
+							<span class="rounded-md border border-border bg-muted px-2 py-1 text-foreground">
+								Enter
+							</span>
+						</div>
+						{#if responseDurationMs != null}
+							<span class="text-foreground">{responseDurationMs}ms</span>
+						{/if}
 					</div>
 				</div>
 			</div>

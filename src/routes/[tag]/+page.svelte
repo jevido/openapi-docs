@@ -48,6 +48,7 @@
 {:else}
 	{#each endpoints as endpoint (endpoint.path + endpoint.method)}
 		{#await Promise.resolve(getEndpointDoc(specs, endpoint.path, endpoint.method)) then doc}
+			{$inspect(doc)}
 			<div id={`${endpoint.path}-${endpoint.method}`} class="space-y-4">
 				<!-- Endpoint Card -->
 				<Card class="border border-border bg-background/50 shadow-sm">
