@@ -6,7 +6,8 @@ const DEFAULT_SOURCE = {
 	id: 'default',
 	name: 'Default API',
 	url: '/openapi.json',
-	isDefault: true
+	isDefault: true,
+	useProxy: false
 };
 
 const STORAGE_KEY = 'jevido.openapi.sources';
@@ -34,12 +35,14 @@ function normalizeSource(raw) {
 	const name = typeof raw.name === 'string' ? raw.name.trim() : '';
 	const url = typeof raw.url === 'string' ? raw.url.trim() : '';
 	const id = typeof raw.id === 'string' ? raw.id.trim() : '';
+	const useProxy = Boolean(raw.useProxy);
 	if (!id || !url) return null;
 	return {
 		id,
 		name: name || url,
 		url,
-		isDefault: Boolean(raw.isDefault)
+		isDefault: Boolean(raw.isDefault),
+		useProxy
 	};
 }
 
@@ -142,7 +145,7 @@ export async function setActiveOpenApiSource(id) {
 	await refreshSpecs();
 }
 
-export async function addOpenApiSource({ name, url }) {
+export async function addOpenApiSource({ name, url, useProxy = false }) {
 	const trimmedUrl = typeof url === 'string' ? url.trim() : '';
 	if (!trimmedUrl) {
 		return { ok: false, error: new Error('Missing OpenAPI URL.') };
@@ -160,7 +163,8 @@ export async function addOpenApiSource({ name, url }) {
 			id: createId(sourceName, trimmedUrl),
 			name: sourceName,
 			url: trimmedUrl,
-			isDefault: false
+			isDefault: false,
+			useProxy: Boolean(useProxy)
 		};
 		const list = normalizeSources([...get(sources), newSource], !defaultHidden);
 		sources.set(list);
@@ -205,6 +209,21 @@ export async function removeOpenApiSource(id) {
 	activeId.set(nextActive.id);
 	persistActive(nextActive.id);
 	await refreshSpecs();
+}
+
+export function setOpenApiSourceProxy(id, useProxy) {
+	const list = get(sources);
+	let changed = false;
+	const nextList = list.map((source) => {
+		if (source.id !== id) return source;
+		const nextUseProxy = Boolean(useProxy);
+		if (source.useProxy === nextUseProxy) return source;
+		changed = true;
+		return { ...source, useProxy: nextUseProxy };
+	});
+	if (!changed) return;
+	sources.set(nextList);
+	persistSources(nextList);
 }
 
 export const openapiSources = {

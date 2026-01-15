@@ -9,6 +9,7 @@
 	import { useSidebar } from '$lib/components/ui/sidebar/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { Label } from '$lib/components/ui/label';
+	import { Checkbox } from '$lib/components/ui/checkbox/index.js';
 
 	import { getEndpointsByTag } from '$lib/api/openapi.js';
 	import {
@@ -35,6 +36,7 @@
 	let query = $state('');
 	let addDialogOpen = $state(false);
 	let newSourceUrl = $state('');
+	let newSourceUseProxy = $state(false);
 	let addError = $state('');
 
 	const endpointsByTag = $derived.by(() => ($openapiSpecs ? getEndpointsByTag($openapiSpecs) : {}));
@@ -90,6 +92,7 @@
 		addDialogOpen = true;
 		addError = '';
 		newSourceUrl = '';
+		newSourceUseProxy = false;
 	}
 
 	async function handleAddSource(event) {
@@ -98,7 +101,7 @@
 			addError = 'Enter a valid OpenAPI URL.';
 			return;
 		}
-		const result = await addOpenApiSource({ url: newSourceUrl });
+		const result = await addOpenApiSource({ url: newSourceUrl, useProxy: newSourceUseProxy });
 		if (!result?.ok) {
 			addError = 'Unable to load that OpenAPI URL.';
 			return;
@@ -294,6 +297,12 @@
 					placeholder="https://example.com/openapi.json"
 					bind:value={newSourceUrl}
 				/>
+			</div>
+			<div class="flex items-center gap-2">
+				<Checkbox id="openapi-proxy" bind:checked={newSourceUseProxy} />
+				<Label for="openapi-proxy" class="text-sm font-medium">
+					(experimental feature) Proxy requests via this app
+				</Label>
 			</div>
 			{#if addError}
 				<p class="text-sm text-destructive">{addError}</p>

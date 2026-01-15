@@ -3,9 +3,12 @@
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Checkbox } from '$lib/components/ui/checkbox/index.js';
+	import { Label } from '$lib/components/ui/label/index.js';
 	import * as Accordion from '$lib/components/ui/accordion/index.js';
 	import * as InputGroup from '$lib/components/ui/input-group/index.js';
 	import { schemaToExample } from '$lib/api/openapi.js';
+	import { activeOpenApiSource, setOpenApiSourceProxy } from '$lib/stores/openapi.js';
+	import { page } from '$app/state';
 	let { endpoint, doc, baseUrl, specUrl = '' } = $props();
 
 	let open = $state(false);
@@ -17,6 +20,23 @@
 	let responseDurationMs = $state(null);
 	let requestAccordion = $state(['query', 'body', 'snippet']);
 	let snippetCopied = $state(false);
+	let proxyEnabled = $state(false);
+	let proxySourceId = $state('');
+
+	$effect(() => {
+		const nextId = $activeOpenApiSource?.id ?? '';
+		if (nextId !== proxySourceId) {
+			proxySourceId = nextId;
+			proxyEnabled = $activeOpenApiSource?.useProxy ?? false;
+		}
+	});
+
+	$effect(() => {
+		if (!proxySourceId) return;
+		const current = $activeOpenApiSource?.useProxy ?? false;
+		if (proxyEnabled === current) return;
+		setOpenApiSourceProxy(proxySourceId, proxyEnabled);
+	});
 
 	function methodBadgeClass(method) {
 		switch (method) {
@@ -40,6 +60,28 @@
 		if (base.endsWith('/') && path.startsWith('/')) return `${base.slice(0, -1)}${path}`;
 		if (!base.endsWith('/') && !path.startsWith('/')) return `${base}/${path}`;
 		return `${base}${path}`;
+	}
+
+	function buildProxyUrl(url) {
+		return `/api/proxy?url=${encodeURIComponent(url)}`;
+	}
+
+	function resolveSpecBase() {
+		if (!specUrl) return page.url.origin;
+		try {
+			return new URL(specUrl, page.url.origin).toString();
+		} catch {
+			return page.url.origin;
+		}
+	}
+
+	function toAbsoluteUrl(value) {
+		try {
+			const base = resolveSpecBase();
+			return new URL(value, base).toString();
+		} catch {
+			return value;
+		}
 	}
 
 	let rowId = 0;
@@ -290,7 +332,9 @@
 		responseDurationMs = null;
 
 		const start = performance.now();
-		const url = requestUrlWithParams.trim() || requestUrl;
+		const rawUrl = requestUrlWithParams.trim() || requestUrl;
+		const absoluteUrl = toAbsoluteUrl(rawUrl);
+		const url = proxyEnabled ? buildProxyUrl(absoluteUrl) : rawUrl;
 
 		const supportsBody = !['GET', 'HEAD'].includes(endpoint.method);
 		let body;
@@ -357,6 +401,10 @@
 				<Button size="sm" onclick={sendRequest} disabled={loading}>
 					{loading ? 'Sending...' : 'Send'}
 				</Button>
+				<div class="flex items-center gap-2 text-xs text-muted-foreground">
+					<Checkbox id="proxy-requests" bind:checked={proxyEnabled} />
+					<Label for="proxy-requests" class="text-xs font-medium">Proxy via app</Label>
+				</div>
 			</div>
 		</div>
 
