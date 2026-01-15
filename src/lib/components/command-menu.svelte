@@ -2,7 +2,13 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { getEndpointsByTag } from '$lib/api/openapi.js';
-	import { openapiSpecs, openapiStatus } from '$lib/stores/openapi.js';
+	import {
+		activeOpenApiSource,
+		openapiSources,
+		openapiSpecs,
+		openapiStatus,
+		setActiveOpenApiSource
+	} from '$lib/stores/openapi.js';
 	import { commandMenuOpen } from '$lib/stores/command-menu.js';
 	import * as Command from '$lib/components/ui/command/index.js';
 
@@ -42,6 +48,12 @@
 		goto(url);
 	}
 
+	async function handleSwitchSource(source) {
+		commandMenuOpen.set(false);
+		await setActiveOpenApiSource(source.id);
+		await goto('/');
+	}
+
 	function handleKeydown(event) {
 		const isModifier = event.ctrlKey || event.metaKey;
 		if (!isModifier || event.key.toLowerCase() !== 'k') return;
@@ -51,7 +63,7 @@
 
 	commandMenuOpen.subscribe(() => {
 		query = '';
-	})
+	});
 </script>
 
 <svelte:window onkeydown={handleKeydown} />
@@ -66,6 +78,22 @@
 			<Command.Item value="Current page" onclick={() => handleNavigate(page.url.pathname)}>
 				Current page
 			</Command.Item>
+		</Command.Group>
+
+		<Command.Separator />
+
+		<Command.Group heading="Switch OpenAPI">
+			{#each $openapiSources as source (source.id)}
+				<Command.Item
+					value={`Switch to OpenAPI ${source.name} ${source.url}`}
+					onclick={() => handleSwitchSource(source)}
+				>
+					Switch to: {source.name}
+					{#if source.id === $activeOpenApiSource?.id}
+						<Command.Shortcut>Active</Command.Shortcut>
+					{/if}
+				</Command.Item>
+			{/each}
 		</Command.Group>
 
 		<Command.Separator />

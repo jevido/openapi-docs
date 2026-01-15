@@ -1,10 +1,7 @@
 import MarkdownIt from 'markdown-it';
 
 const alertTypes = ['note', 'tip', 'important', 'warning', 'caution'];
-const alertPattern = new RegExp(
-	`<blockquote>\\s*<p>\\[!(${alertTypes.join('|')})\\]\\s*`,
-	'gi'
-);
+const alertPattern = new RegExp(`<blockquote>\\s*<p>\\[!(${alertTypes.join('|')})\\]\\s*`, 'gi');
 
 const markdown = new MarkdownIt({
 	html: true,

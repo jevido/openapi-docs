@@ -185,7 +185,7 @@
 								{endpoint}
 								{doc}
 								baseUrl={endpointBaseUrl(endpoint)}
-								specUrl={specUrl}
+								{specUrl}
 							/>
 						</div>
 					</CardHeader>

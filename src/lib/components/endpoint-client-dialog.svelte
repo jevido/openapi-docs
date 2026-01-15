@@ -391,7 +391,10 @@
 								</Accordion.Content>
 							</Accordion.Item>
 
-							<Accordion.Item value="query" class="rounded-md border border-border bg-muted/20 px-3">
+							<Accordion.Item
+								value="query"
+								class="rounded-md border border-border bg-muted/20 px-3"
+							>
 								<Accordion.Trigger
 									class="py-3 text-xs tracking-[0.2em] text-muted-foreground uppercase"
 								>
@@ -429,9 +432,7 @@
 											</div>
 										{/each}
 									</div>
-									<Button size="sm" variant="ghost" onclick={addQueryRow}>
-										Add query param
-									</Button>
+									<Button size="sm" variant="ghost" onclick={addQueryRow}>Add query param</Button>
 								</Accordion.Content>
 							</Accordion.Item>
 

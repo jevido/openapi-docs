@@ -120,8 +120,9 @@
 		@apply bg-background text-foreground;
 	}
 	.sidebar-font {
-		font-family: 'Inter', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-			'Liberation Mono', 'Courier New', monospace;
+		font-family:
+			'Inter', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
+			'Courier New', monospace;
 	}
 }
 
@@ -182,8 +183,9 @@
 		border-radius: var(--radius-sm);
 		padding: 0.15em 0.35em;
 		font-size: 0.85em;
-		font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
-			'Courier New', monospace;
+		font-family:
+			ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
+			monospace;
 	}
 	.markdown pre code {
 		background: transparent;

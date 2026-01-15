@@ -18,8 +18,8 @@
 		</Card.Header>
 		<Card.Content>
 			<p class="text-sm text-muted-foreground">
-				Add an OpenAPI JSON URL from the sidebar menu, or set OPENAPI_LOCATION in your
-				environment to replace the default.
+				Add an OpenAPI JSON URL from the sidebar menu, or set OPENAPI_LOCATION in your environment
+				to replace the default.
 			</p>
 		</Card.Content>
 	</Card.Root>

@@ -8,6 +8,8 @@
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 	import { useSidebar } from '$lib/components/ui/sidebar/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
+	import { Label } from '$lib/components/ui/label';
+
 	import { getEndpointsByTag } from '$lib/api/openapi.js';
 	import {
 		addOpenApiSource,
@@ -35,9 +37,7 @@
 	let newSourceUrl = $state('');
 	let addError = $state('');
 
-	const endpointsByTag = $derived.by(() =>
-		$openapiSpecs ? getEndpointsByTag($openapiSpecs) : {}
-	);
+	const endpointsByTag = $derived.by(() => ($openapiSpecs ? getEndpointsByTag($openapiSpecs) : {}));
 
 	const activeTitle = $derived.by(() => {
 		if ($openapiSpecs?.info?.title) return $openapiSpecs.info.title;
@@ -172,14 +172,11 @@
 						side={sidebar.isMobile ? 'bottom' : 'right'}
 						sideOffset={4}
 					>
-						<DropdownMenu.Label class="text-muted-foreground text-xs">
+						<DropdownMenu.Label class="text-xs text-muted-foreground">
 							Documentation
 						</DropdownMenu.Label>
 						{#each $openapiSources as source, index (source.id)}
-							<DropdownMenu.Item
-								onSelect={() => handleSourceSelect(source.id)}
-								class="gap-2 p-2"
-							>
+							<DropdownMenu.Item onSelect={() => handleSourceSelect(source.id)} class="gap-2 p-2">
 								<div class="flex size-6 items-center justify-center rounded-md border">
 									<GalleryVerticalEndIcon class="size-3.5 shrink-0" />
 								</div>
@@ -203,7 +200,7 @@
 							<div class="flex size-6 items-center justify-center rounded-md border bg-transparent">
 								<PlusIcon class="size-4" />
 							</div>
-							<div class="text-muted-foreground font-medium">Add documentation</div>
+							<div class="font-medium text-muted-foreground">Add documentation</div>
 						</DropdownMenu.Item>
 					</DropdownMenu.Content>
 				</DropdownMenu.Root>
@@ -254,9 +251,9 @@
 															variant="ghost"
 															{...props}
 															href={endpoint.url}
-															class="h-auto w-full py-0 px-1 items-start justify-between gap-2 whitespace-normal text-sm leading-snug text-left"
+															class="h-auto w-full items-start justify-between gap-2 p-0 text-left text-xs leading-snug whitespace-normal"
 														>
-															<span class="min-w-0 flex-1 break-words text-pretty">
+															<span class="min-w-0 flex-1 text-pretty break-words">
 																{endpoint.title}
 															</span>
 															<Badge
@@ -290,8 +287,9 @@
 		</Dialog.Header>
 		<form class="grid gap-4 py-4" onsubmit={handleAddSource}>
 			<div class="grid gap-2">
-				<label class="text-sm font-medium">OpenAPI URL</label>
+				<Label for="openapi-url" class="text-sm font-medium">OpenAPI URL</Label>
 				<Input
+					id="openapi-url"
 					type="url"
 					placeholder="https://example.com/openapi.json"
 					bind:value={newSourceUrl}

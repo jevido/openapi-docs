@@ -122,10 +122,7 @@ export async function initOpenApi() {
 	if (!browser || initialized) return;
 	initialized = true;
 	const defaultHidden = localStorage.getItem(DEFAULT_HIDDEN_KEY) === '1';
-	const stored = normalizeSources(
-		safeParse(localStorage.getItem(STORAGE_KEY)),
-		!defaultHidden
-	);
+	const stored = normalizeSources(safeParse(localStorage.getItem(STORAGE_KEY)), !defaultHidden);
 	sources.set(stored);
 	const storedActive = localStorage.getItem(ACTIVE_KEY);
 	const active = resolveActiveSource(stored, storedActive);
