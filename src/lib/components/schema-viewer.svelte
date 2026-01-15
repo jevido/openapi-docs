@@ -25,6 +25,26 @@
 	<div class="text-sm text-muted-foreground">No schema</div>
 {:else}
 	<div class="space-y-3">
+		{#if schema.description}
+			<div class="text-sm text-muted-foreground">{schema.description}</div>
+		{/if}
+
+		{#if schema.examples?.length}
+			<div class="flex flex-wrap gap-2">
+				{#each schema.examples as example}
+					<Badge variant="outline">
+						{typeof example === 'string' ? example : JSON.stringify(example)}
+					</Badge>
+				{/each}
+			</div>
+		{/if}
+
+		{#if schema.example != null}
+			<div class="text-xs text-muted-foreground">
+				example: {JSON.stringify(schema.example)}
+			</div>
+		{/if}
+
 		<!-- ENUM -->
 		{#if schema.enum}
 			<div class="flex flex-wrap gap-2">
@@ -73,6 +93,16 @@
 							{#if value.example}
 								<div class="text-xs text-muted-foreground">
 									example: {JSON.stringify(value.example)}
+								</div>
+							{/if}
+
+							{#if value.examples?.length}
+								<div class="flex flex-wrap gap-2">
+									{#each value.examples as example}
+										<Badge variant="outline">
+											{typeof example === 'string' ? example : JSON.stringify(example)}
+										</Badge>
+									{/each}
 								</div>
 							{/if}
 

@@ -8,7 +8,7 @@
 	import { schemaToExample } from '$lib/api/openapi.js';
 	import { SvelteMap } from 'svelte/reactivity';
 
-	let { endpoint, doc, baseUrl } = $props();
+	let { endpoint, doc, baseUrl, inline = false } = $props();
 
 	let open = $state(false);
 	let bearerToken = $state('');
@@ -23,15 +23,15 @@
 	function methodBadgeClass(method) {
 		switch (method) {
 			case 'GET':
-				return 'bg-primary/10 text-primary';
+				return 'bg-emerald-500/10 text-emerald-500';
 			case 'POST':
-				return 'bg-secondary text-secondary-foreground';
+				return 'bg-sky-500/10 text-sky-500';
 			case 'PUT':
-				return 'bg-accent text-accent-foreground';
+				return 'bg-indigo-500/10 text-indigo-500';
 			case 'PATCH':
-				return 'bg-muted text-foreground';
+				return 'bg-amber-500/10 text-amber-500';
 			case 'DELETE':
-				return 'bg-destructive/10 text-destructive';
+				return 'bg-rose-500/10 text-rose-500';
 			default:
 				return 'bg-muted text-muted-foreground';
 		}
@@ -59,6 +59,7 @@
 			.filter((key, index, list) => key && list.indexOf(key) === index);
 	});
 	let requestUrlWithParams = $derived(buildUrlWithParams(requestUrl, queryRows, pathParamKeys));
+	let hasQueryParams = $derived.by(() => queryRows.length > 0);
 
 	function addHeaderRow() {
 		headerRows.push({ id: ++rowId, key: '', value: '', enabled: true });
@@ -335,79 +336,70 @@
 
 <svelte:window onkeydown={handleShortcut} />
 
-<Dialog.Root bind:open>
-	<Button
-		size="sm"
-		variant="outline"
-		class="gap-2"
-		onclick={() => {
-			queryRows = createInitialQueryRows();
-			requestAccordion = ['query', 'body', 'snippet'];
-			open = true;
-		}}
-	>
-		Open API Client
-	</Button>
-	<Dialog.Content
-		class="h-[84vh] w-[96vw] max-w-7xl overflow-hidden border border-border bg-card p-0 text-card-foreground shadow-2xl"
-	>
-		<div class="flex h-full flex-col">
-			<div class="border-b border-border bg-muted/40 px-6 py-4">
-				<div class="flex flex-wrap items-center gap-3">
-					<InputGroup.Root class="max-w-3xl">
-						<InputGroup.Addon>
-							<Badge variant="outline" class={methodBadgeClass(endpoint.method)}>
-								{endpoint.method}
-							</Badge>
-						</InputGroup.Addon>
-						<InputGroup.Input
-							class="text-xs text-foreground"
-							value={decodeURIComponent(requestUrlWithParams) || requestUrl}
-							placeholder={requestUrl}
-							readonly
-							onfocus={(event) => event.currentTarget?.select()}
-						/>
-					</InputGroup.Root>
-					<Button size="sm" onclick={sendRequest} disabled={loading}>
-						{loading ? 'Sending...' : 'Send'}
-					</Button>
-				</div>
+{#snippet panelContent()}
+	<div class="flex h-full flex-col">
+		<div class="border-b border-border bg-muted/40 px-6 py-4">
+			<div class="flex flex-wrap items-center gap-3">
+				<InputGroup.Root class="max-w-3xl">
+					<InputGroup.Addon>
+						<Badge variant="outline" class={methodBadgeClass(endpoint.method)}>
+							{endpoint.method}
+						</Badge>
+					</InputGroup.Addon>
+					<InputGroup.Input
+						class="text-xs text-foreground"
+						value={decodeURIComponent(requestUrlWithParams) || requestUrl}
+						placeholder={requestUrl}
+						readonly
+						onfocus={(event) => event.currentTarget?.select()}
+					/>
+				</InputGroup.Root>
+				<Button size="sm" onclick={sendRequest} disabled={loading}>
+					{loading ? 'Sending...' : 'Send'}
+				</Button>
 			</div>
+		</div>
 
-			<div class="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
-				<div class="flex min-h-0 flex-col border-b border-border lg:border-r lg:border-b-0">
-					<div
-						class="border-b border-border px-6 py-3 text-xs tracking-[0.2em] text-muted-foreground uppercase"
-					>
-						Request Builder
-					</div>
-					<div class="h-auto flex-1 overflow-y-auto">
-						<!-- todo: find out why h-[1px] gives auto height, h-auto doesnt -->
-						<div class="h-[1px] w-full space-y-2 px-6 py-4 text-xs text-muted-foreground">
-							<Accordion.Root type="multiple" bind:value={requestAccordion} class="space-y-2">
-								<Accordion.Item
-									value="auth"
-									class="rounded-md border border-border bg-muted/20 px-3"
+		<div
+			class={inline
+				? 'flex min-h-0 flex-1 flex-col'
+				: 'grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]'}
+		>
+			<div
+				class={inline
+					? 'flex min-h-0 flex-col border-b border-border'
+					: 'flex min-h-0 flex-col border-b border-border lg:border-r lg:border-b-0'}
+			>
+				<div
+					class="border-b border-border px-6 py-3 text-xs tracking-[0.2em] text-muted-foreground uppercase"
+				>
+					Request Builder
+				</div>
+				<div class="h-auto flex-1 overflow-y-auto">
+					<!-- todo: find out why h-[1px] gives auto height, h-auto doesnt -->
+					<div class="h-[1px] w-full space-y-2 px-6 py-4 text-xs text-muted-foreground">
+						<Accordion.Root type="multiple" bind:value={requestAccordion} class="space-y-2">
+							<Accordion.Item value="auth" class="rounded-md border border-border bg-muted/20 px-3">
+								<Accordion.Trigger
+									class="py-3 text-xs tracking-[0.2em] text-muted-foreground uppercase"
 								>
-									<Accordion.Trigger
-										class="py-3 text-xs tracking-[0.2em] text-muted-foreground uppercase"
-									>
-										Authentication
-									</Accordion.Trigger>
-									<Accordion.Content class="pt-1">
-										<InputGroup.Root>
-											<InputGroup.Addon>
-												<InputGroup.Text>Bearer</InputGroup.Text>
-											</InputGroup.Addon>
-											<InputGroup.Input
-												class="text-xs"
-												placeholder="Token"
-												bind:value={bearerToken}
-											/>
-										</InputGroup.Root>
-									</Accordion.Content>
-								</Accordion.Item>
+									Authentication
+								</Accordion.Trigger>
+								<Accordion.Content class="pt-1">
+									<InputGroup.Root>
+										<InputGroup.Addon>
+											<InputGroup.Text>Bearer</InputGroup.Text>
+										</InputGroup.Addon>
+										<InputGroup.Input
+											class="text-xs"
+											placeholder="Token"
+											bind:value={bearerToken}
+										/>
+									</InputGroup.Root>
+								</Accordion.Content>
+							</Accordion.Item>
 
+							{#if hasQueryParams}
 								<Accordion.Item
 									value="query"
 									class="rounded-md border border-border bg-muted/20 px-3"
@@ -443,176 +435,174 @@
 										</div>
 									</Accordion.Content>
 								</Accordion.Item>
+							{/if}
 
-								<Accordion.Item
-									value="headers"
-									class="rounded-md border border-border bg-muted/20 px-3"
+							<Accordion.Item
+								value="headers"
+								class="rounded-md border border-border bg-muted/20 px-3"
+							>
+								<Accordion.Trigger
+									class="py-3 text-xs tracking-[0.2em] text-muted-foreground uppercase"
 								>
-									<Accordion.Trigger
-										class="py-3 text-xs tracking-[0.2em] text-muted-foreground uppercase"
-									>
-										Request Headers
-									</Accordion.Trigger>
-									<Accordion.Content class="pt-1">
-										<div class="space-y-2">
-											{#each headerRows as row (row.id)}
-												<div
-													class="grid grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)_auto] items-center gap-2"
+									Request Headers
+								</Accordion.Trigger>
+								<Accordion.Content class="pt-1">
+									<div class="space-y-2">
+										{#each headerRows as row (row.id)}
+											<div
+												class="grid grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)_auto] items-center gap-2"
+											>
+												<Checkbox bind:checked={row.enabled} />
+												<InputGroup.Root class="h-8">
+													<InputGroup.Input
+														class="text-xs"
+														placeholder="Header"
+														bind:value={row.key}
+													/>
+												</InputGroup.Root>
+												<InputGroup.Root class="h-8">
+													<InputGroup.Input
+														class="text-xs"
+														placeholder="Value"
+														bind:value={row.value}
+													/>
+												</InputGroup.Root>
+												<Button
+													size="icon-sm"
+													variant="ghost"
+													aria-label="Remove header"
+													onclick={() => removeRow(headerRows, row.id)}
 												>
-													<Checkbox bind:checked={row.enabled} />
-													<InputGroup.Root class="h-8">
-														<InputGroup.Input
-															class="text-xs"
-															placeholder="Header"
-															bind:value={row.key}
-														/>
-													</InputGroup.Root>
-													<InputGroup.Root class="h-8">
-														<InputGroup.Input
-															class="text-xs"
-															placeholder="Value"
-															bind:value={row.value}
-														/>
-													</InputGroup.Root>
-													<Button
-														size="icon-sm"
-														variant="ghost"
-														aria-label="Remove header"
-														onclick={() => removeRow(headerRows, row.id)}
-													>
-														x
-													</Button>
-												</div>
-											{/each}
-										</div>
-										<Button size="sm" variant="ghost" onclick={addHeaderRow}>Add header</Button>
-									</Accordion.Content>
-								</Accordion.Item>
+													x
+												</Button>
+											</div>
+										{/each}
+									</div>
+									<Button size="sm" variant="ghost" onclick={addHeaderRow}>Add header</Button>
+								</Accordion.Content>
+							</Accordion.Item>
 
-								<Accordion.Item
-									value="body"
-									class="rounded-md border border-border bg-muted/20 px-3"
+							<Accordion.Item value="body" class="rounded-md border border-border bg-muted/20 px-3">
+								<Accordion.Trigger
+									class="py-3 text-xs tracking-[0.2em] text-muted-foreground uppercase"
 								>
-									<Accordion.Trigger
-										class="py-3 text-xs tracking-[0.2em] text-muted-foreground uppercase"
-									>
-										Request Body
-									</Accordion.Trigger>
-									<Accordion.Content class="pt-1">
-										<div class="flex flex-wrap items-center gap-2 text-[11px]">
-											<Button size="sm" variant="ghost" onclick={() => formatBodyJson(2)}>
-												Format JSON
-											</Button>
-											<Button size="sm" variant="ghost" onclick={() => formatBodyJson(0)}>
-												Minify
-											</Button>
-											<Button size="sm" variant="ghost" onclick={resetBodyJson}>Reset</Button>
-											{#if bodyJsonError}
-												<span class="text-destructive">{bodyJsonError}</span>
-											{/if}
-										</div>
-										<InputGroup.Root>
-											<InputGroup.Addon align="block-start">
-												<InputGroup.Text class="font-mono text-[10px] tracking-[0.2em] uppercase">
-													JSON
-												</InputGroup.Text>
-											</InputGroup.Addon>
-											<InputGroup.Textarea
-												class="min-h-52 w-full resize-y bg-transparent font-mono text-xs text-foreground"
-												placeholder={'{}'}
-												value={bodyTextValue}
-												spellcheck="false"
-												autocomplete="off"
-												autocapitalize="off"
-												onkeydown={handleBodyKeydown}
-												oninput={(event) => {
-													const value = event.currentTarget.value;
-													bodyTextDraft = value;
-													bodyTextDirty = value !== bodyTextDefault;
-													bodyJsonError = '';
-												}}
-											/>
-										</InputGroup.Root>
-									</Accordion.Content>
-								</Accordion.Item>
+									Request Body
+								</Accordion.Trigger>
+								<Accordion.Content class="pt-1">
+									<div class="flex flex-wrap items-center gap-2 text-[11px]">
+										<Button size="sm" variant="ghost" onclick={() => formatBodyJson(2)}>
+											Format JSON
+										</Button>
+										<Button size="sm" variant="ghost" onclick={() => formatBodyJson(0)}>
+											Minify
+										</Button>
+										<Button size="sm" variant="ghost" onclick={resetBodyJson}>Reset</Button>
+										{#if bodyJsonError}
+											<span class="text-destructive">{bodyJsonError}</span>
+										{/if}
+									</div>
+									<InputGroup.Root>
+										<InputGroup.Addon align="block-start">
+											<InputGroup.Text class="font-mono text-[10px] tracking-[0.2em] uppercase">
+												JSON
+											</InputGroup.Text>
+										</InputGroup.Addon>
+										<InputGroup.Textarea
+											class="min-h-52 w-full resize-y bg-transparent font-mono text-xs text-foreground"
+											placeholder={'{}'}
+											value={bodyTextValue}
+											spellcheck="false"
+											autocomplete="off"
+											autocapitalize="off"
+											onkeydown={handleBodyKeydown}
+											oninput={(event) => {
+												const value = event.currentTarget.value;
+												bodyTextDraft = value;
+												bodyTextDirty = value !== bodyTextDefault;
+												bodyJsonError = '';
+											}}
+										/>
+									</InputGroup.Root>
+								</Accordion.Content>
+							</Accordion.Item>
 
-								<Accordion.Item
-									value="snippet"
-									class="rounded-md border border-border bg-muted/20 px-3"
+							<Accordion.Item
+								value="snippet"
+								class="rounded-md border border-border bg-muted/20 px-3"
+							>
+								<Accordion.Trigger
+									class="py-3 text-xs tracking-[0.2em] text-muted-foreground uppercase"
 								>
-									<Accordion.Trigger
-										class="py-3 text-xs tracking-[0.2em] text-muted-foreground uppercase"
-									>
-										Code Snippet
-									</Accordion.Trigger>
-									<Accordion.Content class="pt-1">
-										<div class="flex items-center justify-end pb-2">
-											<Button size="sm" variant="ghost" onclick={copySnippet}>
-												{snippetCopied ? 'Copied' : 'Copy'}
-											</Button>
-										</div>
-										<pre
-											class="overflow-auto rounded-md border border-border bg-muted/40 p-3 text-[11px] leading-relaxed text-muted-foreground">{sdkSnippet.trim()}</pre>
-									</Accordion.Content>
-								</Accordion.Item>
-							</Accordion.Root>
-						</div>
+									Code Snippet
+								</Accordion.Trigger>
+								<Accordion.Content class="pt-1">
+									<div class="flex items-center justify-end pb-2">
+										<Button size="sm" variant="ghost" onclick={copySnippet}>
+											{snippetCopied ? 'Copied' : 'Copy'}
+										</Button>
+									</div>
+									<pre
+										class="overflow-auto rounded-md border border-border bg-muted/40 p-3 text-[11px] leading-relaxed text-muted-foreground">{sdkSnippet.trim()}</pre>
+								</Accordion.Content>
+							</Accordion.Item>
+						</Accordion.Root>
 					</div>
 				</div>
+			</div>
 
-				<div class="flex min-h-0 flex-col">
-					<div
-						class="border-b border-border px-6 py-3 text-xs tracking-[0.2em] text-muted-foreground uppercase"
-					>
-						Response
-					</div>
-					<div class="min-h-0 flex-1 overflow-y-auto">
-						<div class="px-6 py-6">
-							{#if errorText}
-								<div
-									class="rounded-md border border-destructive/40 bg-destructive/10 p-4 text-xs text-destructive"
-								>
-									{errorText}
-								</div>
-							{:else if responseText}
-								<div class="space-y-3">
-									<p class="text-[11px] tracking-[0.2em] text-muted-foreground uppercase">
-										{responseStatus}
-									</p>
-									<pre
-										class="rounded-md border border-border bg-muted/40 p-3 text-[11px] leading-relaxed text-foreground">
+			<div class="flex min-h-0 flex-col">
+				<div
+					class="border-b border-border px-6 py-3 text-xs tracking-[0.2em] text-muted-foreground uppercase"
+				>
+					Response
+				</div>
+				<div class="min-h-0 flex-1 overflow-y-auto">
+					<div class="px-6 py-6">
+						{#if errorText}
+							<div
+								class="rounded-md border border-destructive/40 bg-destructive/10 p-4 text-xs text-destructive"
+							>
+								{errorText}
+							</div>
+						{:else if responseText}
+							<div class="space-y-3">
+								<p class="text-[11px] tracking-[0.2em] text-muted-foreground uppercase">
+									{responseStatus}
+								</p>
+								<pre
+									class="rounded-md border border-border bg-muted/40 p-3 text-[11px] leading-relaxed text-foreground">
 {responseText}
-									</pre>
-								</div>
-							{:else}
-								<div
-									class="flex min-h-[360px] flex-col items-center justify-center gap-6 text-muted-foreground"
-								>
-									<pre class="text-[10px] leading-tight text-muted-foreground">
+								</pre>
+							</div>
+						{:else}
+							<div
+								class="flex min-h-[360px] flex-col items-center justify-center gap-6 text-muted-foreground"
+							>
+								<pre class="text-[10px] leading-tight text-muted-foreground">
 ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣠⣤⣶⣲⣻⣿⢯⡿⣟⣿⣟⣶⣶⣤⣄⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
 ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⣤⢖⣿⡿⣷⢿⡻⣿⣽⡻⣽⡻⣽⣯⣿⣿⣿⣽⣿⣿⣿⣷⣦⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
 ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⣠⣴⢺⡝⣲⣟⡞⣟⢧⣻⣝⢮⣽⣳⢽⣹⢷⣿⡞⣿⡿⣿⣽⣿⣿⣿⣿⣿⣿⣶⣄⡀⠀⠀⠀⠀⠀⠀⠀⠀
 ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣠⢔⣶⡝⡽⡜⣥⢧⣚⡱⣎⡳⣭⢶⣳⢮⢿⣜⣳⢯⣟⣮⢷⣻⣷⣻⢯⣿⣯⣿⣿⣿⣿⣿⣿⣿⣿⣦⡄⠀⠀⠀⠀⠀⠀
 ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣠⣴⣯⢳⡌⡖⣩⢳⣛⣮⣦⣳⣽⣚⣵⣹⣎⣿⣯⣛⣯⣟⣻⣾⣹⣯⣷⣯⣿⣟⣿⣻⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣦⡀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⡴⣿⣿⠸⣬⢧⢧⡷⣯⢿⠻⣾⣿⢿⣿⡿⢿⣿⡿⣿⠿⡿⣿⣿⠿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⣄⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣠⣖⡟⡯⢖⢦⡳⣩⣞⡎⠷⡽⣭⢓⣮⢳⢧⣖⡽⣳⣭⢿⣫⢿⣟⣽⣷⣻⣿⣾⣯⡿⣽⣿⣻⣿⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣯⣻⠄⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣠⣴⣿⣾⣫⣯⣝⡎⠶⣵⢇⡞⣽⣫⡷⣭⣻⡼⣹⣶⣫⢷⣳⡽⡷⣯⣽⣿⣿⣷⣏⣿⣿⣿⣽⣿⣿⣯⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡝⡞⡄
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣠⣿⠿⣟⣛⠛⠽⠽⠿⣫⣝⡾⣽⣾⣣⠟⣼⣣⢿⡞⣷⢯⣷⢿⣿⢿⡿⣽⡿⣿⣯⣿⣽⣷⣟⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣟⣼⠃
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣼⡝⠊⣼⣎⠍⠋⣠⠤⣌⢐⣬⠒⣊⢛⠻⣷⢾⣿⣻⣿⣻⣿⣿⣿⣿⣿⣻⣟⣿⣿⣿⢾⣽⣿⣾⣿⣟⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡽⣞⣧
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠹⣷⠊⠨⠁⡀⠈⠀⠘⡠⢕⠈⠀⡯⡄⠑⠠⡨⠝⣻⣿⣿⣿⣯⢯⣿⣿⣽⣿⢿⣻⡿⣿⣳⣿⣿⣿⣽⣿⣿⣿⣿⣿⣽⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⢿⣻⢿⡉
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢟⣬⣢⠰⡎⢂⡰⠆⡈⡲⠗⡤⡃⠀⠀⠀⠀⠕⠦⣰⠙⢛⢿⣿⣿⣾⣿⣽⣿⣻⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣟⣻⡞⠇⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⢟⣎⠱⠀⠱⣀⡄⡈⠂⠀⠠⠆⠹⠀⡀⠀⣄⠀⠈⠃⢬⠛⢝⢻⣿⢿⣿⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣟⡞⣧⠟⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⢻⡩⠀⢵⡁⠀⠀⠐⠁⠡⣊⢆⡀⠲⠢⠁⠠⠒⠈⠄⡠⠀⠇⢙⠷⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣯⣟⣞⡇⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⢯⢄⡳⡀⠀⠀⠀⠐⣁⠎⢈⠌⡖⠜⡨⢫⡀⠠⠀⠘⠀⠂⡀⠂⠘⣻⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⣾⡽⠆⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢰⡯⢢⡈⡓⠀⢀⡢⠁⠐⡓⠂⡘⠈⠀⠀⠀⡄⠀⢀⠂⢴⠀⠅⠀⡈⢄⣘⢿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⣽⣳⢟⠇⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠘⣿⠄⠢⠀⠢⠈⠀⠀⠀⠁⠈⠁⠀⠀⠒⠀⠁⡰⠆⣀⠈⠂⠀⠊⠀⠀⠀⢿⢿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣻⡷⣯⢿⠍⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠘⣿⠓⢄⠈⢀⡀⠄⠀⠀⠤⠖⢈⠢⠀⠀⠑⡀⡀⠌⡁⠀⠀⢲⠀⠀⢈⠈⣤⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣟⣿⣳⣟⡻⠂⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢻⣻⣀⠀⢀⠀⠀⠶⡄⠀⠀⠀⠀⠀⠀⣠⡷⢀⡆⡄⢰⣼⠇⣀⢦⡇⣼⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⣿⠗⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣤⣤⣶⠶⣣⡍⣆⠈⡠⢄⡐⠀⠀⠀⠀⠀⠀⣀⠕⠁⠌⠁⢀⠈⠀⠀⣿⡼⢠⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⣿⡾⡿⠋⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⡠⣲⠿⠋⠉⠀⠀⠀⠙⡿⢿⣤⣄⠔⣘⠁⠄⠀⠀⠀⢁⠀⠈⡀⠀⠀⠀⠀⡠⡅⡀⢣⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⣿⢿⣟⣯⠝⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⣶⣿⠛⠁⠀⠒⠉⠀⠀⠀⠀⠀⠈⠑⠻⠿⢶⣤⣨⠵⠄⠀⠀⠀⠂⠐⠐⣋⠠⠋⢪⠠⠥⣗⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⣯⢷⡿⠝⠋⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣰⣲⡟⠙⠉⠀⢀⠤⠐⠈⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠑⠻⢶⠯⣴⡞⣠⣂⣤⠗⠀⠄⠂⠔⠁⣮⢿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠝⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣤⠤⣤⣴⣛⠕⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠫⠛⢟⣷⣦⣰⠢⠄⠐⡰⠚⣜⢿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⢿⡟⠃⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⡴⣿⣿⠸⣬⢧⢧⡷⣯⢿⠻⣾⣿⢿⣿⡿⢿⣿⡿⣿⠿⡿⣿⣿⠿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⣄⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣠⣖⡟⡯⢖⢦⡳⣩⣞⡎⠷⡽⣭⢓⣮⢳⢧⣖⡽⣳⣭⢿⣫⢿⣟⣽⣷⣻⣿⣾⣯⡿⣽⣿⣻⣿⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣯⣻⠄⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣠⣴⣿⣾⣫⣯⣝⡎⠶⣵⢇⡞⣽⣫⡷⣭⣻⡼⣹⣶⣫⢷⣳⡽⡷⣯⣽⣿⣿⣷⣏⣿⣿⣿⣽⣿⣿⣯⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡝⡞⡄
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣠⣿⠿⣟⣛⠛⠽⠽⠿⣫⣝⡾⣽⣾⣣⠟⣼⣣⢿⡞⣷⢯⣷⢿⣿⢿⡿⣽⡿⣿⣯⣿⣽⣷⣟⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣟⣼⠃
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣼⡝⠊⣼⣎⠍⠋⣠⠤⣌⢐⣬⠒⣊⢛⠻⣷⢾⣿⣻⣿⣻⣿⣿⣿⣿⣿⣻⣟⣿⣿⣿⢾⣽⣿⣾⣿⣟⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡽⣞⣧
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠹⣷⠊⠨⠁⡀⠈⠀⠘⡠⢕⠈⠀⡯⡄⠑⠠⡨⠝⣻⣿⣿⣿⣯⢯⣿⣿⣽⣿⢿⣻⡿⣿⣳⣿⣿⣿⣽⣿⣿⣿⣿⣿⣽⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⢿⣻⢿⡉
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢟⣬⣢⠰⡎⢂⡰⠆⡈⡲⠗⡤⡃⠀⠀⠀⠀⠕⠦⣰⠙⢛⢿⣿⣿⣾⣿⣽⣿⣻⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣟⣻⡞⠇⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⢟⣎⠱⠀⠱⣀⡄⡈⠂⠀⠠⠆⠹⠀⡀⠀⣄⠀⠈⠃⢬⠛⢝⢻⣿⢿⣿⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣟⡞⣧⠟⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⢻⡩⠀⢵⡁⠀⠀⠐⠁⠡⣊⢆⡀⠲⠢⠁⠠⠒⠈⠄⡠⠀⠇⢙⠷⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣯⣟⣞⡇⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⢯⢄⡳⡀⠀⠀⠀⠐⣁⠎⢈⠌⡖⠜⡨⢫⡀⠠⠀⠘⠀⠂⡀⠂⠘⣻⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⣾⡽⠆⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢰⡯⢢⡈⡓⠀⢀⡢⠁⠐⡓⠂⡘⠈⠀⠀⠀⡄⠀⢀⠂⢴⠀⠅⠀⡈⢄⣘⢿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⣽⣳⢟⠇⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠘⣿⠄⠢⠀⠢⠈⠀⠀⠀⠁⠈⠁⠀⠀⠒⠀⠁⡰⠆⣀⠈⠂⠀⠊⠀⠀⠀⢿⢿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣻⡷⣯⢿⠍⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠘⣿⠓⢄⠈⢀⡀⠄⠀⠀⠤⠖⢈⠢⠀⠀⠑⡀⡀⠌⡁⠀⠀⢲⠀⠀⢈⠈⣤⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣟⣿⣳⣟⡻⠂⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢻⣻⣀⠀⢀⠀⠀⠶⡄⠀⠀⠀⠀⠀⠀⣠⡷⢀⡆⡄⢰⣼⠇⣀⢦⡇⣼⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⣿⠗⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣤⣤⣶⠶⣣⡍⣆⠈⡠⢄⡐⠀⠀⠀⠀⠀⠀⣀⠕⠁⠌⠁⢀⠈⠀⠀⣿⡼⢠⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⣿⡾⡿⠋⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⡠⣲⠿⠋⠉⠀⠀⠀⠙⡿⢿⣤⣄⠔⣘⠁⠄⠀⠀⠀⢁⠀⠈⡀⠀⠀⠀⠀⡠⡅⡀⢣⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⣿⢿⣟⣯⠝⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⣶⣿⠛⠁⠀⠒⠉⠀⠀⠀⠀⠀⠈⠑⠻⠿⢶⣤⣨⠵⠄⠀⠀⠀⠂⠐⠐⣋⠠⠋⢪⠠⠥⣗⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠝⠋⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣰⣲⡟⠙⠉⠀⢀⠤⠐⠈⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠑⠻⢶⠯⣴⡞⣠⣂⣤⠗⠀⠄⠂⠔⠁⣮⢿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠝⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣤⠤⣤⣴⣛⠕⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠫⠛⢟⣷⣦⣰⠢⠄⠐⡰⠚⣜⢿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⢿⡟⠃⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
 ⠀⠀⠀⠀⠀⠀⢀⣴⣶⠚⠖⠾⠊⠉⠠⠀⠀⠀⠀⠀⠀⠄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠐⠀⠀⠀⠀⠠⡀⠐⡀⠐⠑⠻⠿⣿⣾⣀⣿⣇⣾⣿⣿⣿⣿⣿⣿⡿⠿⠉⠂⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
 ⠀⠀⠀⠀⠀⣴⣿⡟⢁⠅⠀⠀⠀⠀⠁⢀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠁⠐⢸⠀⠠⠀⢀⡁⠙⣿⣼⣶⣿⣿⣿⣿⡿⠛⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
 ⠀⠀⠀⠀⢸⣿⢳⠓⠁⠀⠀⠠⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠄⠀⠀⠀⠨⠁⠄⠆⣠⣾⣿⣆⡉⠁⠈⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
@@ -626,31 +616,53 @@
 ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢽⣿⣿⣟⡷⣷⣦⣄⣤⡀⠉⠉⠁⠂⠒⠀⠀⠀⠀⠀⠀⠀⠀⣀⠔⣼⣿⣿⣿⣿⣿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
 ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠻⢿⣿⣿⣾⣿⣿⣛⣳⣶⣦⢤⣄⣀⡄⣀⣀⣀⣢⣤⣾⣶⣾⣿⣿⣿⠟⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
 ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠙⠻⢿⣿⣿⢿⣿⣿⣿⣿⣾⣽⣿⣾⣯⣿⣿⣿⣿⣿⣿⣿⠟⠃⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠉⠛⠻⠾⠿⢿⣿⣿⣿⣿⣿⣿⣿⠿⡿⠟⠛⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-									</pre>
-									<p class="text-xs">Send a request to see the response here.</p>
-								</div>
-							{/if}
-						</div>
-					</div>
-					<div
-						class="flex items-center justify-between gap-2 border-t border-border px-6 py-3 text-xs text-muted-foreground"
-					>
-						<div class="flex items-center gap-2">
-							Send Request
-							<span class="rounded-md border border-border bg-muted px-2 py-1 text-foreground"
-								>Ctrl</span
-							>
-							<span class="rounded-md border border-border bg-muted px-2 py-1 text-foreground">
-								Enter
-							</span>
-						</div>
-						{#if responseDurationMs != null}
-							<span class="text-foreground">{responseDurationMs}ms</span>
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠉⠛⠻⠾⠿⢿⣿⣿⣿⣿⣿⣿⠿⡿⠟⠛⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+								</pre>
+								<p class="text-xs">Send a request to see the response here.</p>
+							</div>
 						{/if}
 					</div>
 				</div>
+				<div
+					class="flex items-center justify-end gap-2 border-t border-border px-6 py-3 text-xs text-muted-foreground"
+				>
+					<div class="flex items-center gap-2">
+						Send Request
+						<span class="rounded-md border border-border bg-muted px-2 py-1 text-foreground">
+							Ctrl
+						</span>
+						<span class="rounded-md border border-border bg-muted px-2 py-1 text-foreground">
+							Enter
+						</span>
+					</div>
+					{#if responseDurationMs != null}
+						<span class="text-foreground">{responseDurationMs}ms</span>
+					{/if}
+				</div>
 			</div>
 		</div>
+	</div>
+{/snippet}
+
+<Dialog.Root bind:open>
+	<Button
+		size="sm"
+		variant="outline"
+		class="gap-2"
+		onclick={() => {
+			const nextQueryRows = createInitialQueryRows();
+			queryRows = nextQueryRows;
+			requestAccordion = ['query', 'body', 'snippet'].filter(
+				(section) => section !== 'query' || nextQueryRows.length > 0
+			);
+			open = true;
+		}}
+	>
+		Open API Client
+	</Button>
+	<Dialog.Content
+		class="h-[84vh] w-[96vw] max-w-7xl overflow-hidden border border-border bg-card p-0 text-card-foreground shadow-2xl"
+	>
+		{@render panelContent()}
 	</Dialog.Content>
 </Dialog.Root>

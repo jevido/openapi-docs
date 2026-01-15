@@ -1,13 +1,13 @@
 {
   "openapi": "3.1.1",
   "info": {
-    "title": "Scalar Bakery",
-    "description": "The Scalar Bakery is an example OpenAPI document to test OpenAPI tools and libraries. It's a fictional bakery platform with guilds, members, roles, and a lot of test data. Browse all [guilds](#tag/guilds/get/guilds) or invite a new baker with [invite links](#tag/invites/post/guilds/{guildId}/invites).\n\n## Resources\n\n* https://github.com/scalar/scalar\n* https://github.com/OAI/OpenAPI-Specification\n* https://scalar.com\n\n## Markdown Support\n\nAll descriptions *can* contain **Markdown**. You can even create [internal links to reference endpoints](#tag/authentication/post/auth/signup).\n\n<details>\n  <summary>Examples</summary>\n\n  **Blockquotes**\n\n  > I love OpenAPI. <3\n\n  **Tables**\n\n  | Feature          | Availability |\n  | ---------------- | ------------ |\n  | Markdown Support | \u2713            |\n\n  **Accordion**\n\n  ```html\n  <details>\n    <summary>Using Details Tags</summary>\n    <p>HTML Example</p>\n  </details>\n  ```\n\n  **Images**\n\n  Yes, there's support for images, too!\n\n  ![Empty placeholder image showing the width/height](https://images.placeholders.dev/?width=1280&height=720)\n\n  **Alerts**\n\n  > [!tip]\n  > You can now use markdown alerts in your descriptions.\n\n</details>\n",
+    "title": " Bakery",
+    "description": "The  Bakery is an example OpenAPI document to test OpenAPI tools and libraries. It's a fictional bakery platform with guilds, members, roles, and a lot of test data. Browse all [guilds](#tag/guilds/get/guilds) or invite a new baker with [invite links](#tag/invites/post/guilds/{guildId}/invites).\n\n## Resources\n\n* https://github.com//\n* https://github.com/OAI/OpenAPI-Specification\n* https://.com\n\n## Markdown Support\n\nAll descriptions *can* contain **Markdown**. You can even create [internal links to reference endpoints](#tag/authentication/post/auth/signup).\n\n<details>\n  <summary>Examples</summary>\n\n  **Blockquotes**\n\n  > I love OpenAPI. <3\n\n  **Tables**\n\n  | Feature          | Availability |\n  | ---------------- | ------------ |\n  | Markdown Support | \u2713            |\n\n  **Accordion**\n\n  ```html\n  <details>\n    <summary>Using Details Tags</summary>\n    <p>HTML Example</p>\n  </details>\n  ```\n\n  **Images**\n\n  Yes, there's support for images, too!\n\n  ![Empty placeholder image showing the width/height](https://images.placeholders.dev/?width=1280&height=720)\n\n  **Alerts**\n\n  > [!tip]\n  > You can now use markdown alerts in your descriptions.\n\n</details>\n",
     "version": "1.0.0",
     "contact": {
       "name": "Bakery Support",
-      "url": "https://bakery.scalar.com",
-      "email": "support@scalar.com"
+      "url": "https://bakery.com",
+      "email": "support@.com"
     },
     "license": {
       "name": "MIT",
@@ -16,15 +16,15 @@
   },
   "externalDocs": {
     "description": "Documentation",
-    "url": "https://github.com/scalar/scalar"
+    "url": "https://github.com//"
   },
   "servers": [
     {
-      "url": "https://bakery.scalar.com/api",
+      "url": "https://bakery.com/api",
       "description": "Production"
     },
     {
-      "url": "{protocol}://sandbox.bakery.scalar.com/{path}",
+      "url": "{protocol}://sandbox.bakery.com/{path}",
       "description": "Sandbox echo server",
       "variables": {
         "protocol": {
@@ -314,7 +314,7 @@
         "summary": "Delete a guild",
         "operationId": "deleteGuild",
         "description": "This endpoint was used to delete guilds. It is now deprecated and should not be used anymore.",
-        "x-scalar-stability": "experimental",
+        "x--stability": "experimental",
         "parameters": [
           {
             "$ref": "#/components/parameters/guildId"
@@ -743,21 +743,21 @@
                 "Marc": {
                   "value": {
                     "name": "Marc",
-                    "email": "marc@scalar.com",
-                    "password": "i-love-scalar"
+                    "email": "marc@.com",
+                    "password": "i-love-"
                   }
                 },
                 "Cam": {
                   "value": {
                     "name": "Cam",
-                    "email": "cam@scalar.com",
-                    "password": "scalar-is-cool"
+                    "email": "cam@.com",
+                    "password": "-is-cool"
                   }
                 },
                 "Hans": {
                   "value": {
                     "name": "Hans",
-                    "email": "hans@scalar.com",
+                    "email": "hans@.com",
                     "password": "5c4l4r"
                   }
                 }
@@ -987,8 +987,8 @@
         "description": "OAuth 2.0 authentication",
         "flows": {
           "authorizationCode": {
-            "authorizationUrl": "https://bakery.scalar.com/oauth/authorize",
-            "tokenUrl": "https://bakery.scalar.com/oauth/token",
+            "authorizationUrl": "https://bakery.com/oauth/authorize",
+            "tokenUrl": "https://bakery.com/oauth/token",
             "scopes": {
               "read:account": "read your account information",
               "write:guilds": "modify guilds in your account",
@@ -998,7 +998,7 @@
             }
           },
           "clientCredentials": {
-            "tokenUrl": "https://bakery.scalar.com/oauth/token",
+            "tokenUrl": "https://bakery.com/oauth/token",
             "scopes": {
               "read:account": "read your account information",
               "write:guilds": "modify guilds in your account",
@@ -1008,7 +1008,7 @@
             }
           },
           "implicit": {
-            "authorizationUrl": "https://bakery.scalar.com/oauth/authorize",
+            "authorizationUrl": "https://bakery.com/oauth/authorize",
             "scopes": {
               "read:account": "read your account information",
               "write:guilds": "modify guilds in your account",
@@ -1018,7 +1018,7 @@
             }
           },
           "password": {
-            "tokenUrl": "https://bakery.scalar.com/oauth/token",
+            "tokenUrl": "https://bakery.com/oauth/token",
             "scopes": {
               "read:account": "read your account information",
               "write:guilds": "modify guilds in your account",
@@ -1031,7 +1031,7 @@
       },
       "openIdConnect": {
         "type": "openIdConnect",
-        "openIdConnectUrl": "https://bakery.scalar.com/.well-known/openid-configuration",
+        "openIdConnectUrl": "https://bakery.com/.well-known/openid-configuration",
         "description": "OpenID Connect Authentication"
       }
     },
@@ -1203,7 +1203,7 @@
         "schema": {
           "type": "string",
           "format": "uri",
-          "example": "https://bakery.scalar.com/guilds/123"
+          "example": "https://bakery.com/guilds/123"
         }
       },
       "X-Processing-Time": {
@@ -1357,9 +1357,9 @@
             "type": "string",
             "format": "email",
             "examples": [
-              "marc@scalar.com",
-              "cam@scalar.com",
-              "hans@scalar.com",
+              "marc@.com",
+              "cam@.com",
+              "hans@.com",
               "delia@bakery.dev"
             ]
           },
@@ -1392,16 +1392,16 @@
             "type": "string",
             "format": "email",
             "examples": [
-              "marc@scalar.com",
-              "cam@scalar.com",
-              "hans@scalar.com"
+              "marc@.com",
+              "cam@.com",
+              "hans@.com"
             ]
           },
           "password": {
             "type": "string",
             "writeOnly": true,
             "examples": [
-              "i-love-scalar",
+              "i-love-",
               "i-love-oss",
               "qwerty123"
             ]
@@ -1831,7 +1831,7 @@
         }
       },
       "ImageUploadedMessage": {
-        "x-scalar-ignore": true,
+        "x--ignore": true,
         "description": "Message about an image upload",
         "type": "object",
         "properties": {
@@ -1845,7 +1845,7 @@
             "type": "string",
             "description": "The URL where the uploaded image can be accessed",
             "examples": [
-              "https://cdn.scalar.com/images/8f47c132-9d1f-4f83-b5a4-91db5ee757ab.jpg"
+              "https://cdn.com/images/8f47c132-9d1f-4f83-b5a4-91db5ee757ab.jpg"
             ]
           },
           "uploadedAt": {
@@ -1874,7 +1874,7 @@
         }
       },
       "BadRequestError": {
-        "x-scalar-ignore": true,
+        "x--ignore": true,
         "description": "RFC 7807 (https://datatracker.ietf.org/doc/html/rfc7807)",
         "type": "object",
         "properties": {
@@ -1906,7 +1906,7 @@
         }
       },
       "ForbiddenError": {
-        "x-scalar-ignore": true,
+        "x--ignore": true,
         "description": "Error response for forbidden access (RFC 7807).",
         "type": "object",
         "properties": {
@@ -1938,7 +1938,7 @@
         }
       },
       "NotFoundError": {
-        "x-scalar-ignore": true,
+        "x--ignore": true,
         "description": "Error response for resource not found (RFC 7807).",
         "type": "object",
         "properties": {
@@ -1970,7 +1970,7 @@
         }
       },
       "UnauthorizedError": {
-        "x-scalar-ignore": true,
+        "x--ignore": true,
         "description": "Error response for unauthorized access (RFC 7807).",
         "type": "object",
         "properties": {
@@ -2002,7 +2002,7 @@
         }
       },
       "Conflict": {
-        "x-scalar-ignore": true,
+        "x--ignore": true,
         "description": "Error response for resource conflicts (RFC 7807).",
         "type": "object",
         "properties": {
@@ -2034,7 +2034,7 @@
         }
       },
       "UnprocessableEntity": {
-        "x-scalar-ignore": true,
+        "x--ignore": true,
         "description": "Error response for unprocessable entity (RFC 7807).",
         "type": "object",
         "properties": {
@@ -2066,7 +2066,7 @@
         }
       },
       "TooManyRequestsError": {
-        "x-scalar-ignore": true,
+        "x--ignore": true,
         "description": "Error response for rate limiting (RFC 7807).",
         "type": "object",
         "properties": {

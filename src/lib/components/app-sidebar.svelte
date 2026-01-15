@@ -39,8 +39,8 @@
 
 			result.push({
 				title: tag,
-				url: `/reference/${slugify(tag)}`,
-				isOpen: pathname.startsWith(`/reference/${slugify(tag)}`),
+				url: slugify(tag),
+				isOpen: pathname.startsWith(slugify(tag)),
 				items: filtered.map((op) => ({
 					title: op.summary || `${op.method} ${op.path}`,
 					url: `${slugify(tag)}#${op.path}-${op.method}`,

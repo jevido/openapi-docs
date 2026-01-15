@@ -5,7 +5,10 @@
 	import { page } from '$app/state';
 
 	import AppSidebar from '$lib/components/app-sidebar.svelte';
+	import CommandMenu from '$lib/components/command-menu.svelte';
+	import { commandMenuOpen } from '$lib/stores/command-menu.js';
 	import * as Breadcrumb from '$lib/components/ui/breadcrumb/index.js';
+	import * as Menubar from '$lib/components/ui/menubar/index.js';
 	import { Separator } from '$lib/components/ui/separator/index.js';
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 	import { specs } from '$lib/api/openapi';
@@ -73,6 +76,20 @@
 					{/if}
 				</Breadcrumb.List>
 			</Breadcrumb.Root>
+
+			<div class="ms-auto flex items-center gap-2">
+				<Menubar.Root>
+					<Menubar.Menu>
+						<Menubar.Trigger>Menu</Menubar.Trigger>
+						<Menubar.Content>
+							<Menubar.Item onclick={() => commandMenuOpen.set(true)}>
+								Command Menu
+								<Menubar.Shortcut>Ctrl+K</Menubar.Shortcut>
+							</Menubar.Item>
+						</Menubar.Content>
+					</Menubar.Menu>
+				</Menubar.Root>
+			</div>
 		</header>
 
 		<div
@@ -86,3 +103,5 @@
 		</div>
 	</Sidebar.Inset>
 </Sidebar.Provider>
+
+<CommandMenu />

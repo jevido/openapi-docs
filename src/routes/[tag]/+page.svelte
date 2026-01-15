@@ -1,6 +1,12 @@
 <script>
 	import { page } from '$app/state';
-	import { specs, getEndpointsByTag, getEndpointDoc, getServerUrl } from '$lib/api/openapi.js';
+	import {
+		specs,
+		getEndpointsByTag,
+		getEndpointDoc,
+		getServerUrl,
+		getTag
+	} from '$lib/api/openapi.js';
 
 	import { Card, CardContent, CardHeader, CardTitle } from '$lib/components/ui/card/index.js';
 	import { Badge } from '$lib/components/ui/badge/index.js';
@@ -11,6 +17,10 @@
 	import SchemaViewer from '$lib/components/schema-viewer.svelte';
 
 	const currentTag = $derived(page.params.tag);
+	const tagInfo = $derived.by(() => {
+		if (!specs || !currentTag) return null;
+		return getTag(specs, currentTag);
+	});
 
 	const endpoints = $derived.by(() => {
 		if (!specs || !currentTag) return [];
@@ -37,6 +47,25 @@
 	function endpointBaseUrl(endpoint) {
 		return getServerUrl(specs, endpoint.path, endpoint.method) || page.url.origin;
 	}
+
+	function formatSchemaType(schema) {
+		if (!schema) return '—';
+		const base = schema.type || 'object';
+		return schema.format ? `${base} (${schema.format})` : base;
+	}
+
+	function formatExampleValue(value) {
+		if (value == null) return '—';
+		if (typeof value === 'string') return value;
+		return JSON.stringify(value, null, 2);
+	}
+
+	function formatExamplesPreview(examples) {
+		if (!examples?.length) return '—';
+		const example = examples[0];
+		if (example?.externalValue) return example.externalValue;
+		return formatExampleValue(example?.value);
+	}
 </script>
 
 <svelte:head>
@@ -46,20 +75,36 @@
 {#if !endpoints?.length}
 	<div class="text-muted-foreground">No endpoints found for tag "{currentTag}".</div>
 {:else}
+	{#if tagInfo?.description}
+		<Card class="border border-muted/20 bg-muted/5">
+			<CardHeader>
+				<CardTitle>{tagInfo.name}</CardTitle>
+			</CardHeader>
+			<CardContent>
+				<p class="text-sm text-muted-foreground">{tagInfo.description}</p>
+			</CardContent>
+		</Card>
+	{/if}
 	{#each endpoints as endpoint (endpoint.path + endpoint.method)}
 		{#await Promise.resolve(getEndpointDoc(specs, endpoint.path, endpoint.method)) then doc}
-			{$inspect(doc)}
-			<div id={`${endpoint.path}-${endpoint.method}`} class="space-y-4">
-				<!-- Endpoint Card -->
+			<div id={`${endpoint.path}-${endpoint.method}`} class="space-y-6">
 				<Card class="border border-border bg-background/50 shadow-sm">
-					<CardHeader class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-						<div class="flex items-center gap-3">
+					<CardHeader class="space-y-3">
+						<div class="flex flex-wrap items-center gap-3">
 							<Badge variant="outline" class={methodClass(endpoint.method)}>
 								{endpoint.method}
 							</Badge>
 							<h2 class="text-lg font-semibold">{endpoint.path}</h2>
+							{#if doc?.deprecated}
+								<Badge variant="outline" class="text-rose-500">Deprecated</Badge>
+							{/if}
+							{#if doc?.extensions?.['x-scalar-stability']}
+								<Badge variant="outline" class="text-amber-500">
+									{doc.extensions['x-scalar-stability']}
+								</Badge>
+							{/if}
 						</div>
-						<div class="flex flex-wrap items-center gap-3">
+						<div class="flex flex-wrap items-center justify-between gap-3">
 							{#if endpoint.summary}
 								<p class="text-sm text-muted-foreground">{endpoint.summary}</p>
 							{/if}
@@ -67,83 +112,471 @@
 						</div>
 					</CardHeader>
 
-					<CardContent class="space-y-4">
-						<Separator class="my-0" />
+					<CardContent class="space-y-6">
+						{#if doc?.description}
+							<p class="text-sm text-muted-foreground">{doc.description}</p>
+						{/if}
 
-						<!-- Parameters -->
-						{#if doc?.parameters?.length}
-							<Card class="border border-muted/20 bg-muted/5 p-3">
-								<CardHeader>
-									<CardTitle>Parameters</CardTitle>
-								</CardHeader>
-								<CardContent class="p-0">
-									<Table.Root>
-										<Table.Header>
-											<Table.Row>
-												<Table.Head>Name</Table.Head>
-												<Table.Head>In</Table.Head>
-												<Table.Head>Type</Table.Head>
-												<Table.Head>Required</Table.Head>
-												<Table.Head>Description</Table.Head>
-											</Table.Row>
-										</Table.Header>
-										<Table.Body>
-											{#each doc.parameters as param (param.name + param.in)}
+						<div class="space-y-4">
+							{#if doc?.requestBody?.content?.length}
+								<details class="rounded-lg border border-muted/20 bg-muted/5 p-4" open>
+									<summary class="cursor-pointer text-sm font-medium">Request Example</summary>
+									<div class="mt-3 space-y-3">
+										<Tabs.Root value={doc.requestBody.content[0].mediaType}>
+											<Tabs.List class="mb-2">
+												{#each doc.requestBody.content as content (content.mediaType)}
+													<Tabs.Trigger value={content.mediaType}>
+														{content.mediaType}
+													</Tabs.Trigger>
+												{/each}
+											</Tabs.List>
+											{#each doc.requestBody.content as content (content.mediaType)}
+												<Tabs.Content value={content.mediaType} class="space-y-2">
+													<div
+														class="flex flex-wrap items-center gap-2 text-xs text-muted-foreground"
+													>
+														<Badge variant="outline" class={methodClass(endpoint.method)}>
+															{endpoint.method}
+														</Badge>
+														<span class="font-mono">{endpoint.path}</span>
+													</div>
+													{#if content.examples?.length}
+														<pre
+															class="rounded-md border border-border bg-muted/40 p-3 text-[11px] leading-relaxed text-foreground">
+{formatExampleValue(content.examples[0].value)}
+													</pre>
+													{:else}
+														<div class="text-sm text-muted-foreground">
+															No request example defined.
+														</div>
+													{/if}
+												</Tabs.Content>
+											{/each}
+										</Tabs.Root>
+									</div>
+								</details>
+							{/if}
+
+							{#if doc?.operationId || doc?.externalDocs || Object.keys(doc?.extensions || {}).length}
+								<details class="rounded-lg border border-muted/20 bg-muted/5 p-4">
+									<summary class="cursor-pointer text-sm font-medium">Details</summary>
+									<div class="mt-3">
+										<Table.Root>
+											<Table.Body>
+												{#if doc.operationId}
+													<Table.Row>
+														<Table.Cell class="font-medium">Operation ID</Table.Cell>
+														<Table.Cell class="font-mono text-sm">{doc.operationId}</Table.Cell>
+													</Table.Row>
+												{/if}
+												{#if doc.deprecated}
+													<Table.Row>
+														<Table.Cell class="font-medium">Deprecated</Table.Cell>
+														<Table.Cell>Yes</Table.Cell>
+													</Table.Row>
+												{/if}
+												{#if doc.externalDocs}
+													<Table.Row>
+														<Table.Cell class="font-medium">External Docs</Table.Cell>
+														<Table.Cell>
+															<a
+																class="text-primary underline-offset-4 hover:underline"
+																href={doc.externalDocs.url}
+																rel="noreferrer"
+																target="_blank"
+															>
+																{doc.externalDocs.description || doc.externalDocs.url}
+															</a>
+														</Table.Cell>
+													</Table.Row>
+												{/if}
+												{#if Object.keys(doc.extensions || {}).length}
+													{#each Object.entries(doc.extensions) as [key, value] (key)}
+														<Table.Row>
+															<Table.Cell class="font-medium">{key}</Table.Cell>
+															<Table.Cell class="font-mono text-xs">
+																{formatExampleValue(value)}
+															</Table.Cell>
+														</Table.Row>
+													{/each}
+												{/if}
+											</Table.Body>
+										</Table.Root>
+									</div>
+								</details>
+							{/if}
+
+							{#if doc?.servers?.length}
+								<details class="rounded-lg border border-muted/20 bg-muted/5 p-4">
+									<summary class="cursor-pointer text-sm font-medium">Servers</summary>
+									<div class="mt-3">
+										<Table.Root>
+											<Table.Header>
 												<Table.Row>
-													<Table.Cell class="font-mono text-sm">{param.name}</Table.Cell>
-													<Table.Cell>{param.in}</Table.Cell>
-													<Table.Cell>{param.schema?.type ?? '—'}</Table.Cell>
-													<Table.Cell>{param.required ? 'Yes' : 'No'}</Table.Cell>
-													<Table.Cell class="text-muted-foreground">
-														{param.description || '—'}
-													</Table.Cell>
+													<Table.Head>URL</Table.Head>
+													<Table.Head>Description</Table.Head>
 												</Table.Row>
-											{/each}
-										</Table.Body>
-									</Table.Root>
-								</CardContent>
-							</Card>
-						{/if}
+											</Table.Header>
+											<Table.Body>
+												{#each doc.servers as server (server.url)}
+													<Table.Row>
+														<Table.Cell class="font-mono text-xs">
+															{server.resolvedUrl || server.url}
+														</Table.Cell>
+														<Table.Cell class="text-muted-foreground">
+															{server.description || '—'}
+														</Table.Cell>
+													</Table.Row>
+												{/each}
+											</Table.Body>
+										</Table.Root>
+									</div>
+								</details>
+							{/if}
 
-						<!-- Request Body -->
-						{#if doc?.requestBodySchema}
-							<Card class="border border-muted/20 bg-muted/5 p-3">
-								<CardHeader>
-									<CardTitle>Request Body</CardTitle>
-								</CardHeader>
-								<CardContent class="p-0">
-									<SchemaViewer schema={doc.requestBodySchema} />
-								</CardContent>
-							</Card>
-						{/if}
-
-						<!-- Responses -->
-						{#if doc && Object.keys(doc.responseSchemas || {}).length}
-							<Card class="border border-muted/20 bg-muted/5 p-3">
-								<CardHeader>
-									<CardTitle>Responses</CardTitle>
-								</CardHeader>
-								<CardContent class="p-0">
-									<Tabs.Root value={Object.keys(doc.responseSchemas)[0]}>
-										<Tabs.List class="mb-2">
-											{#each Object.keys(doc.responseSchemas) as status (status)}
-												<Tabs.Trigger value={status}>{status}</Tabs.Trigger>
-											{/each}
-										</Tabs.List>
-
-										{#each Object.entries(doc.responseSchemas) as [status, schema] (status)}
-											<Tabs.Content value={status}>
-												<SchemaViewer {schema} />
-											</Tabs.Content>
+							{#if doc?.securityRequirements?.length}
+								<details class="rounded-lg border border-muted/20 bg-muted/5 p-4">
+									<summary class="cursor-pointer text-sm font-medium">Security</summary>
+									<div class="mt-3 space-y-3">
+										{#each doc.securityRequirements as requirement, index (index)}
+											<div class="space-y-3 rounded-md border border-border bg-muted/10 p-3">
+												<div class="text-[11px] tracking-[0.2em] text-muted-foreground uppercase">
+													Requirement {index + 1}
+												</div>
+												{#if !requirement.schemes?.length}
+													<p class="text-xs text-muted-foreground">No authentication required.</p>
+												{:else}
+													{#each requirement.schemes as scheme (scheme.name)}
+														<div class="space-y-1">
+															<div class="flex flex-wrap items-center gap-2">
+																<Badge variant="outline">{scheme.name}</Badge>
+																{#if scheme.scheme?.type}
+																	<span class="text-xs text-muted-foreground">
+																		{scheme.scheme.type}
+																	</span>
+																{/if}
+															</div>
+															{#if scheme.scheme?.description}
+																<p class="text-xs text-muted-foreground">
+																	{scheme.scheme.description}
+																</p>
+															{/if}
+															{#if scheme.scopes?.length}
+																<div class="flex flex-wrap gap-2">
+																	{#each scheme.scopes as scope}
+																		<Badge variant="outline">{scope}</Badge>
+																	{/each}
+																</div>
+															{/if}
+														</div>
+													{/each}
+												{/if}
+											</div>
 										{/each}
-									</Tabs.Root>
-								</CardContent>
-							</Card>
-						{/if}
+									</div>
+								</details>
+							{/if}
+
+							{#if doc?.parameters?.length}
+								<details class="rounded-lg border border-muted/20 bg-muted/5 p-4" open>
+									<summary class="cursor-pointer text-sm font-medium">Parameters</summary>
+									<div class="mt-3">
+										<Table.Root>
+											<Table.Header>
+												<Table.Row>
+													<Table.Head>Name</Table.Head>
+													<Table.Head>In</Table.Head>
+													<Table.Head>Type</Table.Head>
+													<Table.Head>Required</Table.Head>
+													<Table.Head>Description</Table.Head>
+													<Table.Head>Example</Table.Head>
+												</Table.Row>
+											</Table.Header>
+											<Table.Body>
+												{#each doc.parameters as param (param.name + param.in)}
+													<Table.Row>
+														<Table.Cell class="font-mono text-sm">{param.name}</Table.Cell>
+														<Table.Cell>{param.in}</Table.Cell>
+														<Table.Cell>{formatSchemaType(param.schema)}</Table.Cell>
+														<Table.Cell>{param.required ? 'Yes' : 'No'}</Table.Cell>
+														<Table.Cell class="text-muted-foreground">
+															{param.description || '—'}
+														</Table.Cell>
+														<Table.Cell class="font-mono text-xs">
+															{formatExamplesPreview(param.examples)}
+														</Table.Cell>
+													</Table.Row>
+												{/each}
+											</Table.Body>
+										</Table.Root>
+									</div>
+								</details>
+							{/if}
+
+							{#if doc?.requestBody}
+								<details class="rounded-lg border border-muted/20 bg-muted/5 p-4" open>
+									<summary class="cursor-pointer text-sm font-medium">Request Body</summary>
+									<div class="mt-3 space-y-3">
+										{#if doc.requestBody.description}
+											<p class="text-sm text-muted-foreground">
+												{doc.requestBody.description}
+											</p>
+										{/if}
+										{#if doc.requestBody.required}
+											<Badge variant="outline">Required</Badge>
+										{/if}
+										{#if doc.requestBody.content?.length}
+											<Tabs.Root value={doc.requestBody.content[0].mediaType}>
+												<Tabs.List class="mb-2">
+													{#each doc.requestBody.content as content (content.mediaType)}
+														<Tabs.Trigger value={content.mediaType}>
+															{content.mediaType}
+														</Tabs.Trigger>
+													{/each}
+												</Tabs.List>
+												{#each doc.requestBody.content as content (content.mediaType)}
+													<Tabs.Content value={content.mediaType} class="space-y-3">
+														{#if content.schema}
+															<SchemaViewer schema={content.schema} />
+														{:else}
+															<div class="text-sm text-muted-foreground">No schema</div>
+														{/if}
+
+														{#if content.examples?.length}
+															<div class="space-y-2">
+																<div
+																	class="text-[11px] tracking-[0.2em] text-muted-foreground uppercase"
+																>
+																	Examples
+																</div>
+																{#if content.examples.length === 1}
+																	{#if content.examples[0].externalValue}
+																		<a
+																			class="text-xs text-primary underline-offset-4 hover:underline"
+																			href={content.examples[0].externalValue}
+																			rel="noreferrer"
+																			target="_blank"
+																		>
+																			{content.examples[0].externalValue}
+																		</a>
+																	{:else}
+																		<pre
+																			class="rounded-md border border-border bg-muted/40 p-3 text-[11px] leading-relaxed text-foreground">
+{formatExampleValue(content.examples[0].value)}
+																			</pre>
+																	{/if}
+																{:else}
+																	<Tabs.Root value={content.examples[0].name || 'Example 1'}>
+																		<Tabs.List class="mb-2">
+																			{#each content.examples as example, exampleIndex (example.name || exampleIndex)}
+																				<Tabs.Trigger
+																					value={example.name || `Example ${exampleIndex + 1}`}
+																				>
+																					{example.name || `Example ${exampleIndex + 1}`}
+																				</Tabs.Trigger>
+																			{/each}
+																		</Tabs.List>
+																		{#each content.examples as example, exampleIndex (example.name || exampleIndex)}
+																			<Tabs.Content
+																				value={example.name || `Example ${exampleIndex + 1}`}
+																				class="space-y-2"
+																			>
+																				{#if example.summary}
+																					<div class="text-xs text-muted-foreground">
+																						{example.summary}
+																					</div>
+																				{/if}
+																				{#if example.description}
+																					<div class="text-xs text-muted-foreground">
+																						{example.description}
+																					</div>
+																				{/if}
+																				{#if example.externalValue}
+																					<a
+																						class="text-xs text-primary underline-offset-4 hover:underline"
+																						href={example.externalValue}
+																						rel="noreferrer"
+																						target="_blank"
+																					>
+																						{example.externalValue}
+																					</a>
+																				{:else}
+																					<pre
+																						class="rounded-md border border-border bg-muted/40 p-3 text-[11px] leading-relaxed text-foreground">
+{formatExampleValue(example.value)}
+																						</pre>
+																				{/if}
+																			</Tabs.Content>
+																		{/each}
+																	</Tabs.Root>
+																{/if}
+															</div>
+														{/if}
+													</Tabs.Content>
+												{/each}
+											</Tabs.Root>
+										{:else}
+											<div class="text-sm text-muted-foreground">
+												No request body content defined.
+											</div>
+										{/if}
+									</div>
+								</details>
+							{/if}
+
+							{#if doc && Object.keys(doc.responses || {}).length}
+								<details class="rounded-lg border border-muted/20 bg-muted/5 p-4" open>
+									<summary class="cursor-pointer text-sm font-medium">Responses</summary>
+									<div class="mt-3">
+										<Tabs.Root value={Object.keys(doc.responses)[0]}>
+											<Tabs.List class="mb-2">
+												{#each Object.keys(doc.responses) as status (status)}
+													<Tabs.Trigger value={status}>{status}</Tabs.Trigger>
+												{/each}
+											</Tabs.List>
+
+											{#each Object.entries(doc.responses) as [status, response] (status)}
+												<Tabs.Content value={status} class="space-y-3">
+													{#if response.description}
+														<p class="text-sm text-muted-foreground">
+															{response.description}
+														</p>
+													{/if}
+
+													{#if response.headers?.length}
+														<Table.Root>
+															<Table.Header>
+																<Table.Row>
+																	<Table.Head>Header</Table.Head>
+																	<Table.Head>Type</Table.Head>
+																	<Table.Head>Required</Table.Head>
+																	<Table.Head>Description</Table.Head>
+																	<Table.Head>Example</Table.Head>
+																</Table.Row>
+															</Table.Header>
+															<Table.Body>
+																{#each response.headers as header (header.name)}
+																	<Table.Row>
+																		<Table.Cell class="font-mono text-sm">
+																			{header.name}
+																		</Table.Cell>
+																		<Table.Cell>{formatSchemaType(header.schema)}</Table.Cell>
+																		<Table.Cell>{header.required ? 'Yes' : 'No'}</Table.Cell>
+																		<Table.Cell class="text-muted-foreground">
+																			{header.description || '—'}
+																		</Table.Cell>
+																		<Table.Cell class="font-mono text-xs">
+																			{formatExamplesPreview(header.examples)}
+																		</Table.Cell>
+																	</Table.Row>
+																{/each}
+															</Table.Body>
+														</Table.Root>
+													{/if}
+
+													{#if response.content?.length}
+														<Tabs.Root value={response.content[0].mediaType}>
+															<Tabs.List class="mb-2">
+																{#each response.content as content (content.mediaType)}
+																	<Tabs.Trigger value={content.mediaType}>
+																		{content.mediaType}
+																	</Tabs.Trigger>
+																{/each}
+															</Tabs.List>
+															{#each response.content as content (content.mediaType)}
+																<Tabs.Content value={content.mediaType} class="space-y-3">
+																	{#if content.schema}
+																		<SchemaViewer schema={content.schema} />
+																	{:else}
+																		<div class="text-sm text-muted-foreground">No schema</div>
+																	{/if}
+
+																	{#if content.examples?.length}
+																		<div class="space-y-2">
+																			<div
+																				class="text-[11px] tracking-[0.2em] text-muted-foreground uppercase"
+																			>
+																				Examples
+																			</div>
+																			{#if content.examples.length === 1}
+																				{#if content.examples[0].externalValue}
+																					<a
+																						class="text-xs text-primary underline-offset-4 hover:underline"
+																						href={content.examples[0].externalValue}
+																						rel="noreferrer"
+																						target="_blank"
+																					>
+																						{content.examples[0].externalValue}
+																					</a>
+																				{:else}
+																					<pre
+																						class="rounded-md border border-border bg-muted/40 p-3 text-[11px] leading-relaxed text-foreground">
+{formatExampleValue(content.examples[0].value)}
+																					</pre>
+																				{/if}
+																			{:else}
+																				<Tabs.Root value={content.examples[0].name || 'Example 1'}>
+																					<Tabs.List class="mb-2">
+																						{#each content.examples as example, exampleIndex (example.name || exampleIndex)}
+																							<Tabs.Trigger
+																								value={example.name ||
+																									`Example ${exampleIndex + 1}`}
+																							>
+																								{example.name || `Example ${exampleIndex + 1}`}
+																							</Tabs.Trigger>
+																						{/each}
+																					</Tabs.List>
+																					{#each content.examples as example, exampleIndex (example.name || exampleIndex)}
+																						<Tabs.Content
+																							value={example.name || `Example ${exampleIndex + 1}`}
+																							class="space-y-2"
+																						>
+																							{#if example.summary}
+																								<div class="text-xs text-muted-foreground">
+																									{example.summary}
+																								</div>
+																							{/if}
+																							{#if example.description}
+																								<div class="text-xs text-muted-foreground">
+																									{example.description}
+																								</div>
+																							{/if}
+																							{#if example.externalValue}
+																								<a
+																									class="text-xs text-primary underline-offset-4 hover:underline"
+																									href={example.externalValue}
+																									rel="noreferrer"
+																									target="_blank"
+																								>
+																									{example.externalValue}
+																								</a>
+																							{:else}
+																								<pre
+																									class="rounded-md border border-border bg-muted/40 p-3 text-[11px] leading-relaxed text-foreground">
+{formatExampleValue(example.value)}
+																								</pre>
+																							{/if}
+																						</Tabs.Content>
+																					{/each}
+																				</Tabs.Root>
+																			{/if}
+																		</div>
+																	{/if}
+																</Tabs.Content>
+															{/each}
+														</Tabs.Root>
+													{/if}
+												</Tabs.Content>
+											{/each}
+										</Tabs.Root>
+									</div>
+								</details>
+							{/if}
+						</div>
 					</CardContent>
 				</Card>
 
-				<Separator class="my-4" />
+				<Separator class="my-6" />
 			</div>
 		{/await}
 	{/each}
