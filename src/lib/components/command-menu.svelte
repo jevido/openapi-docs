@@ -44,13 +44,13 @@
 		event.preventDefault();
 		commandMenuOpen.set(true);
 	}
+
+	commandMenuOpen.subscribe(() => {
+		query = '';
+	})
 </script>
 
 <svelte:window onkeydown={handleKeydown} />
-
-{#if $commandMenuOpen}
-	{@const _reset = query = ''}
-{/if}
 
 <Command.Dialog bind:open={$commandMenuOpen}>
 	<Command.Input placeholder="Search docs or endpoints..." bind:value={query} />

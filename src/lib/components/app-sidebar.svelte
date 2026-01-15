@@ -75,11 +75,11 @@
 	}
 </script>
 
-<Sidebar.Root bind:ref {...restProps}>
+<Sidebar.Root bind:ref {...restProps} class="sidebar-font">
 	<Sidebar.Header>
 		<Sidebar.Menu>
 			<Sidebar.MenuItem>
-				<Sidebar.MenuButton size="lg">
+				<Sidebar.MenuButton size="lg" class="text-[13px]">
 					{#snippet child({ props })}
 						<a href="/" {...props}>
 							<div
@@ -108,7 +108,7 @@
 						<Sidebar.MenuItem>
 							<Collapsible.Trigger>
 								{#snippet child({ props })}
-									<Sidebar.MenuButton {...props}>
+									<Sidebar.MenuButton {...props} class="text-sm">
 										{tagItem.title}
 										<PlusIcon class="ms-auto group-data-[state=open]/collapsible:hidden" />
 										<MinusIcon class="ms-auto group-data-[state=closed]/collapsible:hidden" />
@@ -121,16 +121,20 @@
 									<Sidebar.MenuSub>
 										{#each tagItem.items as endpoint}
 											<Sidebar.MenuSubItem class="p-0">
-												<Sidebar.MenuSubButton isActive={endpoint.isActive}>
+												<Sidebar.MenuSubButton isActive={endpoint.isActive} size="sm">
 													{#snippet child({ props })}
 														<Button
 															variant="ghost"
 															{...props}
 															href={endpoint.url}
-															class="flex justify-between text-sm"
+															class="h-auto w-full py-0 px-1 items-start justify-between gap-2 whitespace-normal text-[13px] leading-snug text-left"
 														>
-															{endpoint.title}
-															<Badge variant="outline" class={methodClass(endpoint.method)}
+															<span class="min-w-0 flex-1 break-words text-pretty">
+																{endpoint.title}
+															</span>
+															<Badge
+																variant="outline"
+																class={`shrink-0 self-start ${methodClass(endpoint.method)}`}
 																>{endpoint.method}</Badge
 															>
 														</Button>

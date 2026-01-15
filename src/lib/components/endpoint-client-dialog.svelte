@@ -6,8 +6,6 @@
 	import * as Accordion from '$lib/components/ui/accordion/index.js';
 	import * as InputGroup from '$lib/components/ui/input-group/index.js';
 	import { schemaToExample } from '$lib/api/openapi.js';
-	import { SvelteMap } from 'svelte/reactivity';
-
 	let { endpoint, doc, baseUrl } = $props();
 
 	let open = $state(false);
@@ -59,7 +57,6 @@
 			.filter((key, index, list) => key && list.indexOf(key) === index);
 	});
 	let requestUrlWithParams = $derived(buildUrlWithParams(requestUrl, queryRows, pathParamKeys));
-	let hasQueryParams = $derived.by(() => queryRows.length > 0);
 
 	function addHeaderRow() {
 		headerRows.push({ id: ++rowId, key: '', value: '', enabled: true });
@@ -103,12 +100,15 @@
 			const hasProtocol = /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(rawUrl);
 			const base = hasProtocol ? undefined : 'http://placeholder';
 			const pathParamSet = new Set(pathParams);
-			const valueByKey = new SvelteMap();
+			const valueByKey = new Map();
 			params.forEach((row) => {
 				if (!row.enabled) return;
 				const key = row.key.trim();
 				if (!key) return;
-				valueByKey.set(key, row.value ?? '');
+				if (!pathParamSet.has(key)) return;
+				if (!valueByKey.has(key)) {
+					valueByKey.set(key, row.value ?? '');
+				}
 			});
 
 			let resolvedUrl = rawUrl;
@@ -124,7 +124,7 @@
 				const key = row.key.trim();
 				if (!key) return;
 				if (pathParamSet.has(key)) return;
-				url.searchParams.set(key, row.value ?? '');
+				url.searchParams.append(key, row.value ?? '');
 			});
 			const nextUrl = url.toString();
 			return hasProtocol ? nextUrl : nextUrl.replace('http://placeholder', '');
@@ -391,43 +391,49 @@
 								</Accordion.Content>
 							</Accordion.Item>
 
-							{#if hasQueryParams}
-								<Accordion.Item
-									value="query"
-									class="rounded-md border border-border bg-muted/20 px-3"
+							<Accordion.Item value="query" class="rounded-md border border-border bg-muted/20 px-3">
+								<Accordion.Trigger
+									class="py-3 text-xs tracking-[0.2em] text-muted-foreground uppercase"
 								>
-									<Accordion.Trigger
-										class="py-3 text-xs tracking-[0.2em] text-muted-foreground uppercase"
-									>
-										Query Parameters
-									</Accordion.Trigger>
-									<Accordion.Content class="pt-1">
-										<div class="space-y-2">
-											{#each queryRows as row (row.id)}
-												<div
-													class="grid grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)_auto] items-center gap-2"
+									Query Parameters
+								</Accordion.Trigger>
+								<Accordion.Content class="pt-1">
+									<div class="space-y-2">
+										{#each queryRows as row (row.id)}
+											<div
+												class="grid grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)_auto] items-center gap-2"
+											>
+												<Checkbox bind:checked={row.enabled} />
+												<InputGroup.Root class="h-8">
+													<InputGroup.Input
+														class="text-xs"
+														placeholder="Key"
+														bind:value={row.key}
+													/>
+												</InputGroup.Root>
+												<InputGroup.Root class="h-8">
+													<InputGroup.Input
+														class="text-xs"
+														placeholder="Value"
+														bind:value={row.value}
+													/>
+												</InputGroup.Root>
+												<Button
+													size="icon-sm"
+													variant="ghost"
+													aria-label="Remove query param"
+													onclick={() => removeRow(queryRows, row.id)}
 												>
-													<Checkbox bind:checked={row.enabled} />
-													<InputGroup.Root class="h-8">
-														<InputGroup.Input
-															class="text-xs"
-															placeholder="Key"
-															bind:value={row.key}
-														/>
-													</InputGroup.Root>
-													<InputGroup.Root class="h-8">
-														<InputGroup.Input
-															class="text-xs"
-															placeholder="Value"
-															bind:value={row.value}
-														/>
-													</InputGroup.Root>
-												</div>
-											{/each}
-										</div>
-									</Accordion.Content>
-								</Accordion.Item>
-							{/if}
+													x
+												</Button>
+											</div>
+										{/each}
+									</div>
+									<Button size="sm" variant="ghost" onclick={addQueryRow}>
+										Add query param
+									</Button>
+								</Accordion.Content>
+							</Accordion.Item>
 
 							<Accordion.Item
 								value="headers"
@@ -644,9 +650,7 @@
 		onclick={() => {
 			const nextQueryRows = createInitialQueryRows();
 			queryRows = nextQueryRows;
-			requestAccordion = ['query', 'body', 'snippet'].filter(
-				(section) => section !== 'query' || nextQueryRows.length > 0
-			);
+			requestAccordion = ['query', 'body', 'snippet'];
 			open = true;
 		}}
 	>

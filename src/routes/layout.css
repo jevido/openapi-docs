@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
 @import 'tailwindcss';
 
 @import 'tw-animate-css';
@@ -117,5 +118,9 @@
 	}
 	body {
 		@apply bg-background text-foreground;
+	}
+	.sidebar-font {
+		font-family: 'Inter', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+			'Liberation Mono', 'Courier New', monospace;
 	}
 }
