@@ -2,13 +2,19 @@
 	import * as Card from '$lib/components/ui/card/index.js';
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import Markdown from '$lib/components/markdown.svelte';
+	import { createOpenApiLinkResolver } from '$lib/api/openapi.js';
 	import { activeOpenApiSource, openapiSpecs, openapiStatus } from '$lib/stores/openapi.js';
 
 	const servers = $derived.by(() => $openapiSpecs?.servers ?? []);
 	const specUrl = $derived.by(() => $activeOpenApiSource?.url ?? '');
 	const openApiVersion = $derived.by(() => $openapiSpecs?.openapi ?? '—');
 	const info = $derived.by(() => $openapiSpecs?.info ?? null);
+	const linkResolver = $derived.by(() => createOpenApiLinkResolver($openapiSpecs));
 </script>
+
+<svelte:head>
+	<title>{info?.title ? `${info.title} API` : 'API'}</title>
+</svelte:head>
 
 {#if $openapiStatus.state === 'error'}
 	<Card.Root class="border-destructive/40">
@@ -29,13 +35,13 @@
 			<Card.Root class="border-muted/40 bg-background/60">
 				<Card.Header class="space-y-2">
 					<Card.Title class="text-2xl">{info.title || 'API documentation'}</Card.Title>
-					<Card.Description>
-						{#if info.description}
-							<Markdown content={info.description} />
-						{:else}
-							Explore endpoints, schemas, and authentication details.
-						{/if}
-					</Card.Description>
+						<Card.Description>
+							{#if info.description}
+								<Markdown content={info.description} linkResolver={linkResolver} />
+							{:else}
+								Explore endpoints, schemas, and authentication details.
+							{/if}
+						</Card.Description>
 				</Card.Header>
 				<Card.Content class="flex flex-wrap items-center gap-2">
 					<Badge variant="outline">OpenAPI {openApiVersion}</Badge>

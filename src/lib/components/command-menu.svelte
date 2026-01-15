@@ -1,7 +1,7 @@
 <script>
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { getEndpointsByTag } from '$lib/api/openapi.js';
+	import { endpointAnchor, getEndpointsByTag, tagToPath } from '$lib/api/openapi.js';
 	import {
 		activeOpenApiSource,
 		openapiSources,
@@ -33,11 +33,11 @@
 		for (const [tag, endpoints] of Object.entries(endpointsByTag)) {
 			result.push({
 				tag,
-				tagUrl: `/${slugify(tag)}`,
+				tagUrl: tagToPath(tag),
 				endpoints: endpoints.map((endpoint) => ({
 					key: `${endpoint.path}-${endpoint.method}`,
 					label: endpoint.summary || `${endpoint.method} ${endpoint.path}`,
-					url: `/${slugify(tag)}#${endpoint.path}-${endpoint.method}`,
+					url: `${tagToPath(tag)}#${endpointAnchor(endpoint.path, endpoint.method)}`,
 					value: `${endpoint.method} ${endpoint.path} ${endpoint.summary || ''}`
 				}))
 			});
@@ -45,10 +45,6 @@
 
 		return result;
 	});
-
-	function slugify(value) {
-		return value.replace(/[^A-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
-	}
 
 	function handleNavigate(url) {
 		commandMenuOpen.set(false);

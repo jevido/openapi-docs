@@ -1,8 +1,8 @@
 <script>
 	import { renderMarkdown } from '$lib/utils/markdown.js';
 
-	let { content = '' } = $props();
-	const html = $derived(renderMarkdown(content));
+	let { content = '', linkResolver = null } = $props();
+	const html = $derived(renderMarkdown(content, { transformLink: linkResolver }));
 </script>
 
 {#if content}

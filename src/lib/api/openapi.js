@@ -27,6 +27,80 @@ export function getTags(openapi) {
 	);
 }
 
+export function tagToPath(tag) {
+	if (!tag) return '/';
+	return `/${encodeURIComponent(tag)}`;
+}
+
+export function endpointAnchor(path, method) {
+	if (!path || !method) return '';
+	return `${path}-${method.toUpperCase()}`;
+}
+
+function decodePointerSegment(value) {
+	if (!value) return '';
+	const decoded = value.replace(/~1/g, '/').replace(/~0/g, '~');
+	try {
+		return decodeURIComponent(decoded);
+	} catch {
+		return decoded;
+	}
+}
+
+function normalizePointer(href) {
+	if (!href || !href.startsWith('#')) return null;
+	const pointer = href.startsWith('#/') ? href.slice(2) : href.slice(1);
+	return pointer ? pointer.split('/') : null;
+}
+
+export function createOpenApiLinkResolver(openapi) {
+	if (!openapi) return null;
+
+	const tagByPathMethod = new Map();
+	const byOperationId = new Map();
+
+	for (const [path, methods] of Object.entries(openapi.paths || {})) {
+		for (const [method, operation] of Object.entries(methods || {})) {
+			if (!operation || typeof operation !== 'object') continue;
+			const tags = operation.tags?.length ? operation.tags : ['Untagged'];
+			const primaryTag = tags[0] || 'Untagged';
+			const upperMethod = method.toUpperCase();
+			tagByPathMethod.set(`${path} ${upperMethod}`, primaryTag);
+			if (operation.operationId) {
+				byOperationId.set(operation.operationId, { path, method: upperMethod, tag: primaryTag });
+			}
+		}
+	}
+
+	return function resolveOpenApiLink(href) {
+		const parts = normalizePointer(href);
+		if (!parts || !parts.length) return href;
+		const [root, ...rest] = parts;
+
+		if (root === 'paths' && rest.length >= 2) {
+			const path = decodePointerSegment(rest[0]);
+			const method = decodePointerSegment(rest[1]).toUpperCase();
+			const tag = tagByPathMethod.get(`${path} ${method}`) || 'Untagged';
+			const anchor = endpointAnchor(path, method);
+			return `${tagToPath(tag)}#${anchor}`;
+		}
+
+		if ((root === 'tag' || root === 'tags') && rest.length) {
+			const tag = decodePointerSegment(rest[0]);
+			return tagToPath(tag);
+		}
+
+		if (root === 'operation' && rest.length) {
+			const operationId = decodePointerSegment(rest[0]);
+			const match = byOperationId.get(operationId);
+			if (!match) return href;
+			return `${tagToPath(match.tag)}#${endpointAnchor(match.path, match.method)}`;
+		}
+
+		return href;
+	};
+}
+
 /* ================================
    Endpoints grouped by tag
 ================================ */

@@ -11,7 +11,7 @@
 	import { Label } from '$lib/components/ui/label';
 	import { Checkbox } from '$lib/components/ui/checkbox/index.js';
 
-	import { getEndpointsByTag } from '$lib/api/openapi.js';
+	import { endpointAnchor, getEndpointsByTag, tagToPath } from '$lib/api/openapi.js';
 	import {
 		addOpenApiSource,
 		activeOpenApiSource,
@@ -74,11 +74,11 @@
 
 			result.push({
 				title: tag,
-				url: slugify(tag),
-				isOpen: pathname.startsWith(slugify(tag)),
+				url: tagToPath(tag),
+				isOpen: pathname.startsWith(tagToPath(tag)),
 				items: filtered.map((op) => ({
 					title: op.summary || `${op.method} ${op.path}`,
-					url: `${slugify(tag)}#${op.path}-${op.method}`,
+					url: `${tagToPath(tag)}#${endpointAnchor(op.path, op.method)}`,
 					method: op.method,
 					isActive: false
 				}))
@@ -120,10 +120,6 @@
 		event.stopPropagation();
 		await removeOpenApiSource(id);
 		await goto('/');
-	}
-
-	function slugify(value) {
-		return value.replace(/[^A-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
 	}
 
 	function methodClass(method) {

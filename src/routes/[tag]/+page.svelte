@@ -1,6 +1,8 @@
 <script>
 	import { page } from '$app/state';
 	import {
+		createOpenApiLinkResolver,
+		endpointAnchor,
 		getEndpointsByTag,
 		getEndpointDoc,
 		getServerUrl,
@@ -29,6 +31,7 @@
 		if (!$openapiSpecs || !currentTag) return [];
 		return getEndpointsByTag($openapiSpecs)[currentTag] ?? [];
 	});
+	const linkResolver = $derived.by(() => createOpenApiLinkResolver($openapiSpecs));
 
 	function methodClass(method) {
 		switch (method) {
@@ -152,7 +155,7 @@
 				<CardTitle>{tagInfo.name}</CardTitle>
 			</CardHeader>
 			<CardContent>
-				<Markdown content={tagInfo.description} />
+				<Markdown content={tagInfo.description} linkResolver={linkResolver} />
 			</CardContent>
 		</Card>
 	{/if}
@@ -160,7 +163,7 @@
 		{#await Promise.resolve(getEndpointDoc($openapiSpecs, endpoint.path, endpoint.method)) then doc}
 			{@const requestExample = getRequestExample(doc)}
 			{@const sdkSnippet = buildSdkSnippet(endpoint, endpointBaseUrl(endpoint), requestExample)}
-			<div id={`${endpoint.path}-${endpoint.method}`} class="space-y-6">
+			<div id={endpointAnchor(endpoint.path, endpoint.method)} class="space-y-6">
 				<Card class="border border-border bg-background/50 shadow-sm">
 					<CardHeader class="space-y-3">
 						<div class="flex flex-wrap items-center gap-3">
@@ -192,7 +195,7 @@
 
 					<CardContent class="space-y-6">
 						{#if doc?.description}
-							<Markdown content={doc.description} />
+							<Markdown content={doc.description} linkResolver={linkResolver} />
 						{/if}
 
 						<div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,440px)]">
