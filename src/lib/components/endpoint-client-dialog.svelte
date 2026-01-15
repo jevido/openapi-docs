@@ -8,7 +8,7 @@
 	import { schemaToExample } from '$lib/api/openapi.js';
 	import { SvelteMap } from 'svelte/reactivity';
 
-	let { endpoint, doc, baseUrl, inline = false } = $props();
+	let { endpoint, doc, baseUrl } = $props();
 
 	let open = $state(false);
 	let bearerToken = $state('');
@@ -360,16 +360,8 @@
 			</div>
 		</div>
 
-		<div
-			class={inline
-				? 'flex min-h-0 flex-1 flex-col'
-				: 'grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]'}
-		>
-			<div
-				class={inline
-					? 'flex min-h-0 flex-col border-b border-border'
-					: 'flex min-h-0 flex-col border-b border-border lg:border-r lg:border-b-0'}
-			>
+		<div class="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+			<div class="flex min-h-0 flex-col border-b border-border lg:border-r lg:border-b-0">
 				<div
 					class="border-b border-border px-6 py-3 text-xs tracking-[0.2em] text-muted-foreground uppercase"
 				>
