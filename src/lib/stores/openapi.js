@@ -2,6 +2,8 @@ import { browser } from '$app/environment';
 import { derived, get, writable } from 'svelte/store';
 import { loadOpenApi } from '$lib/api/openapi.js';
 
+// todo: remove the proxy logic, just use it as a spa
+
 const DEFAULT_SOURCE = {
 	id: 'default',
 	name: 'Default API',

@@ -1,239 +1,128 @@
 <script>
-	let { value = '', handleSubmit = () => {} } = $props();
-	let container;
+	import { onMount, onDestroy } from 'svelte';
 
-	const INDENT = '  '; // base indentation
+	import * as InputGroup from '$lib/components/ui/input-group/index.js';
+	import * as monaco from 'monaco-editor';
+	import { format } from 'prettier';
+	let {
+		value = $bindable(''),
+		language = 'json',
+		disabled = false,
+		handleSubmit = () => {}
+	} = $props();
 
-	// ===============================
-	// Undo / Redo history
-	// ===============================
-	const history = [];
-	let historyIndex = -1;
-	let isUndoRedo = false; // prevents infinite loop on value binding
+	let container = $state();
+	let editor = $state();
+	let changeDisposable = $state();
 
-	function pushHistory() {
-		if (isUndoRedo) return;
-		// Remove future history if any
-		history.splice(historyIndex + 1);
-		history.push({ value, cursor: container?.selectionStart || 0 });
-		historyIndex = history.length - 1;
-	}
-
-	function undo() {
-		if (historyIndex <= 0) return;
-		historyIndex--;
-		applyHistory(history[historyIndex]);
-	}
-
-	function redo() {
-		if (historyIndex >= history.length - 1) return;
-		historyIndex++;
-		applyHistory(history[historyIndex]);
-	}
-
-	function applyHistory(entry) {
-		if (!container || !entry) return;
-		isUndoRedo = true;
-		value = entry.value;
-		setTimeout(() => {
-			container.selectionStart = container.selectionEnd = entry.cursor;
-			isUndoRedo = false;
-		}, 0);
-	}
-
-	// ===============================
-	// Helpers
-	// ===============================
-	function getCurrentLineIndent(before) {
-		const lastLineBreak = before.lastIndexOf('\n');
-		const lineStart = lastLineBreak + 1;
-		const line = before.slice(lineStart);
-		const match = line.match(/^\s*/);
-		return match ? match[0] : '';
-	}
-
-	// ===============================
-	// Key handling
-	// ===============================
-	function onKeyDown(event) {
-		const textarea = event.target;
-		let start = textarea.selectionStart;
-		let end = textarea.selectionEnd;
-
-		const before = value.slice(0, start);
-		const after = value.slice(end);
-
-		// Ctrl/Cmd + Enter → submit
-		if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
-			event.preventDefault();
-			handleSubmit();
-			return;
-		}
-
-		// Undo / Redo
-		if ((event.ctrlKey || event.metaKey) && !event.shiftKey && event.key.toLowerCase() === 'z') {
-			event.preventDefault();
-			undo();
-			return;
-		}
-		if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === 'z') {
-			event.preventDefault();
-			redo();
-			return;
-		}
-
-		// Tab / Shift+Tab → multi-line indent/unindent
-		if (event.key === 'Tab') {
-			event.preventDefault();
-			pushHistory();
-
-			const textBeforeSelection = value.slice(0, start);
-			const textSelected = value.slice(start, end);
-			const textAfterSelection = value.slice(end);
-
-			// Treat current line if nothing is selected
-			const selectionLines = textSelected.length
-				? textSelected.split('\n')
-				: (() => {
-						const lineStart = textBeforeSelection.lastIndexOf('\n') + 1;
-						const lineEndRelative =
-							textAfterSelection.indexOf('\n') !== -1
-								? textAfterSelection.indexOf('\n')
-								: textAfterSelection.length;
-						return [value.slice(lineStart, start + lineEndRelative)];
-					})();
-
-			if (event.shiftKey) {
-				// Unindent
-				const unindentedLines = selectionLines.map((line) =>
-					line.startsWith(INDENT) ? line.slice(INDENT.length) : line
-				);
-				const newText = unindentedLines.join('\n');
-
-				if (textSelected.length) {
-					value = textBeforeSelection + newText + textAfterSelection;
-					const removedChars = selectionLines.reduce(
-						(acc, line) => acc + (line.startsWith(INDENT) ? INDENT.length : 0),
-						0
-					);
-					setTimeout(() => {
-						textarea.selectionStart = start;
-						textarea.selectionEnd = end - removedChars;
-					}, 0);
-				} else {
-					const lineStart = textBeforeSelection.lastIndexOf('\n') + 1;
-					value =
-						value.slice(0, lineStart) + newText + value.slice(lineStart + selectionLines[0].length);
-					setTimeout(() => {
-						textarea.selectionStart = textarea.selectionEnd =
-							start - (selectionLines[0].startsWith(INDENT) ? INDENT.length : 0);
-					}, 0);
-				}
-			} else {
-				// Indent
-				const indentedLines = selectionLines.map((line) => INDENT + line);
-				const newText = indentedLines.join('\n');
-
-				if (textSelected.length) {
-					value = textBeforeSelection + newText + textAfterSelection;
-					setTimeout(() => {
-						textarea.selectionStart = start;
-						textarea.selectionEnd = end + INDENT.length * selectionLines.length;
-					}, 0);
-				} else {
-					const lineStart = textBeforeSelection.lastIndexOf('\n') + 1;
-					value =
-						value.slice(0, lineStart) + newText + value.slice(lineStart + selectionLines[0].length);
-					setTimeout(() => {
-						textarea.selectionStart = textarea.selectionEnd = start + INDENT.length;
-					}, 0);
-				}
+	// Prettier formatting function
+	async function formatCode() {
+		try {
+			const parser = language === 'json' ? 'json' : 'babel';
+			const formatted = await format(value, {
+				parser,
+				plugins: format,
+				tabWidth: 2,
+				useTabs: false
+			});
+			value = formatted;
+			if (editor) {
+				editor.getModel().setValue(formatted);
 			}
-			return;
+		} catch (err) {
+			console.error('Format error:', err);
 		}
+	}
 
-		// Auto-close brackets/braces/quotes
-		const pairs = { '{': '}', '[': ']', '"': '"' };
-		if (pairs[event.key]) {
-			event.preventDefault();
-			pushHistory();
+	// todo: add faulty syntax higlighting
+	// todo: clean up this component so it doesn't use hooks
 
-			const closing = pairs[event.key];
-			const beforeCursor = value.slice(0, start);
-			const afterCursor = value.slice(end);
+	onMount(async () => {
+		// Register the languageIds first. Only registered languages will be highlighted.
+		monaco.languages.register({ id: 'json' });
+		monaco.languages.register({ id: 'javascript' });
+		editor = monaco.editor.create(container, {
+			value,
+			language,
+			theme: 'vs-dark', // Dark theme
+			automaticLayout: true, // Auto resize
+			fontSize: 14,
+			scrollBeyondLastLine: false,
+			wordWrap: 'on',
+			tabSize: 2,
+			insertSpaces: true,
+			autoClosingBrackets: 'always',
+			autoClosingQuotes: 'always',
+			formatOnType: true,
+			formatOnPaste: true,
 
-			// Smart quote handling like Monaco
-			if (event.key === '"') {
-				const lineStart = beforeCursor.lastIndexOf('\n') + 1;
-				const lineBeforeCursor = beforeCursor.slice(lineStart);
-				const openQuotes = (lineBeforeCursor.match(/"/g) || []).length;
+			// Cleaner UI
+			lineNumbers: 'off', // No line numbers
+			minimap: { enabled: false }, // No minimap
+			scrollBeyondLastColumn: 0, // Remove extra inset
+			padding: { top: 8, bottom: 8 }, // Improved padding
+			glyphMargin: false,
+			renderIndentGuides: false, // No indent guides
+			automaticLayout: true,
+			readOnly: disabled,
 
-				if (openQuotes % 2 === 0) {
-					// Even → insert pair
-					value = beforeCursor + '""' + afterCursor;
-					setTimeout(() => {
-						textarea.selectionStart = textarea.selectionEnd = start + 1;
-					}, 0);
-				} else {
-					// Odd → skip next quote if exists
-					if (afterCursor.startsWith('"')) {
-						setTimeout(() => {
-							textarea.selectionStart = textarea.selectionEnd = start + 1;
-						}, 0);
-					} else {
-						value = beforeCursor + '"' + afterCursor;
-						setTimeout(() => {
-							textarea.selectionStart = textarea.selectionEnd = start + 1;
-						}, 0);
-					}
-				}
-				return;
+			// Better visual styling
+			contextmenu: true,
+			cursorStyle: 'line',
+			cursorBlinking: 'blink',
+			smoothedAdjustedScroll: true,
+			fontFamily: 'monospace',
+			fontLigatures: true
+		});
+
+		// Update bound value when editor changes
+		const model = editor.getModel();
+
+		changeDisposable = model.onDidChangeContent(() => {
+			const currentValue = model.getValue();
+			value = currentValue;
+		});
+
+		// Ctrl+Enter → submit
+		editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, handleSubmit);
+
+		// Shift+Alt+F → format with prettier
+		editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Alt | monaco.KeyCode.KeyF, formatCode);
+
+		// Also handle the standard format command
+		monaco.languages.registerDocumentFormattingEditProvider(language, {
+			async provideDocumentFormattingEdits(model) {
+				await formatCode();
+				return [];
 			}
+		});
+	});
 
-			// Other pairs
-			value = beforeCursor + event.key + closing + afterCursor;
-			setTimeout(() => {
-				textarea.selectionStart = textarea.selectionEnd = start + 1;
-			}, 0);
-			return;
-		}
-
-		// Smart Enter → auto-indent
-		if (event.key === 'Enter') {
-			event.preventDefault();
-			pushHistory();
-
-			const currentIndent = getCurrentLineIndent(before);
-			const openChar = before.slice(-1);
-			const closeChar = after[0];
-			const extraIndent =
-				(openChar === '{' && closeChar === '}') || (openChar === '[' && closeChar === ']')
-					? INDENT
-					: '';
-
-			const insertText = `\n${currentIndent}${extraIndent}${extraIndent ? '\n' + currentIndent : ''}`;
-			value = before + insertText + after;
-
-			setTimeout(() => {
-				textarea.selectionStart = textarea.selectionEnd =
-					start + 1 + currentIndent.length + extraIndent.length;
-			}, 0);
-		}
-	}
-
-	function onInput(event) {
-		if (!isUndoRedo) pushHistory();
-		value = event.target.value;
-	}
+	onDestroy(() => {
+		changeDisposable.dispose();
+		editor.dispose();
+	});
 </script>
 
-<textarea
-	bind:this={container}
-	bind:value
-	class="min-h-52 w-full resize-y bg-transparent px-2 font-mono text-xs text-foreground outline-none"
-	spellcheck="false"
-	autocomplete="off"
-	autocapitalize="off"
-	oninput={onInput}
-	onkeydown={onKeyDown}
-></textarea>
+<InputGroup.Root>
+	<InputGroup.Addon align="block-start">
+		<InputGroup.Text class="font-mono text-xs tracking-[0.2em] uppercase">
+			{language}
+		</InputGroup.Text>
+	</InputGroup.Addon>
+
+	<div
+		bind:this={container}
+		class="max-h-96 min-h-42 w-full overflow-y-auto rounded border outline-none"
+	></div>
+</InputGroup.Root>
+
+<style lang="postcss">
+	:global(.Monokai-tmTheme .current-line) {
+		background-color: transparent;
+	}
+	:global(.monaco-editor.vs-dark .current-line) {
+		background: none;
+		box-sizing: border-box;
+	}
+</style>

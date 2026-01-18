@@ -1,5 +1,6 @@
 <script>
 	import { page } from '$app/state';
+	import { onNavigate } from '$app/navigation';
 	import {
 		createOpenApiLinkResolver,
 		endpointAnchor,
@@ -15,10 +16,24 @@
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { Separator } from '$lib/components/ui/separator/index.js';
 	import * as Tabs from '$lib/components/ui/tabs/index.js';
-	import * as Table from '$lib/components/ui/table/index.js';
 	import EndpointClientDialog from '$lib/components/endpoint-client-dialog.svelte';
 	import Markdown from '$lib/components/markdown.svelte';
-	import SchemaViewer from '$lib/components/schema-viewer.svelte';
+	import SchemaViewerMobile from '$lib/components/schema-viewer-mobile.svelte';
+	import Editor from '$lib/components/editor.svelte';
+
+	// todo: add a shortcut for opening the open api client for the response
+
+	onNavigate(({ to }) => {
+		if (to?.hash) {
+			// Scroll to the hash target after navigation completes
+			requestAnimationFrame(() => {
+				const element = document.getElementById(to.hash.slice(1));
+				if (element) {
+					element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+				}
+			});
+		}
+	});
 
 	const currentTag = $derived(page.params.tag);
 	const specUrl = $derived.by(() => $activeOpenApiSource?.url ?? '');
@@ -116,7 +131,7 @@
 		return JSON.stringify(example ?? {}, null, 2);
 	}
 
-	function buildSdkSnippet(endpoint, baseUrl, requestExample) {
+	function buildSdkSnippet(endpoint, baseUrl, requestExample, doc) {
 		const method = endpoint.method.toLowerCase();
 		const sdkAccess = `${sdkAccessorForPath(endpoint.path)}.${method}`;
 		const options = [];
@@ -124,7 +139,38 @@
 		const optionsBlock = options.length ? `, {\n  ${options.join(',\n  ')}\n}` : '';
 		const supportsBody = !['GET', 'HEAD'].includes(endpoint.method);
 		const bodyValue = formatSdkBody(requestExample || '{}');
-		const callLine = supportsBody ? `${sdkAccess}(${bodyValue})` : `${sdkAccess}()`;
+
+		let callLine = '';
+		if (supportsBody) {
+			callLine = `${sdkAccess}(${bodyValue})`;
+		} else {
+			// For GET/HEAD requests, include query parameters
+			const queryParams =
+				doc?.parameters
+					?.filter((param) => param.in === 'query')
+					?.map((param) => ({
+						name: param.name,
+						schema: param.schema
+					})) || [];
+
+			if (queryParams.length > 0) {
+				const paramLines = queryParams
+					.map((param) => {
+						const schemaType = param.schema?.type;
+						let exampleValue = '';
+						if (schemaType === 'integer') exampleValue = '64';
+						else if (schemaType === 'number') exampleValue = '64';
+						else if (param.schema?.enum?.length) exampleValue = `"${param.schema.enum[0]}"`;
+						else exampleValue = '""';
+						return `  ${param.name}: ${exampleValue}`;
+					})
+					.join(',\n');
+				callLine = `${sdkAccess}({\n${paramLines}\n})`;
+			} else {
+				callLine = `${sdkAccess}()`;
+			}
+		}
+
 		return [
 			'import { createSDK } from "jevido-sdk";',
 			'',
@@ -155,22 +201,27 @@
 				<CardTitle>{tagInfo.name}</CardTitle>
 			</CardHeader>
 			<CardContent>
-				<Markdown content={tagInfo.description} linkResolver={linkResolver} />
+				<Markdown content={tagInfo.description} {linkResolver} />
 			</CardContent>
 		</Card>
 	{/if}
 	{#each endpoints as endpoint (endpoint.path + endpoint.method)}
 		{#await Promise.resolve(getEndpointDoc($openapiSpecs, endpoint.path, endpoint.method)) then doc}
 			{@const requestExample = getRequestExample(doc)}
-			{@const sdkSnippet = buildSdkSnippet(endpoint, endpointBaseUrl(endpoint), requestExample)}
-			<div id={endpointAnchor(endpoint.path, endpoint.method)} class="space-y-6">
+			{@const sdkSnippet = buildSdkSnippet(
+				endpoint,
+				endpointBaseUrl(endpoint),
+				requestExample,
+				doc
+			)}
+			<div id={endpointAnchor(endpoint.path, endpoint.method)} class="scroll-mt-20 space-y-6">
 				<Card class="border border-border bg-background/50 shadow-sm">
 					<CardHeader class="space-y-3">
-						<div class="flex flex-wrap items-center gap-3">
+						<div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
 							<Badge variant="outline" class={methodClass(endpoint.method)}>
 								{endpoint.method}
 							</Badge>
-							<h2 class="text-lg font-semibold">{endpoint.path}</h2>
+							<h2 class="text-lg font-semibold break-all">{endpoint.path}</h2>
 							{#if doc?.deprecated}
 								<Badge variant="outline" class="text-rose-500">Deprecated</Badge>
 							{/if}
@@ -180,7 +231,7 @@
 								</Badge>
 							{/if}
 						</div>
-						<div class="flex flex-wrap items-center justify-between gap-3">
+						<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 							{#if endpoint.summary}
 								<p class="text-sm text-muted-foreground">{endpoint.summary}</p>
 							{/if}
@@ -195,7 +246,7 @@
 
 					<CardContent class="space-y-6">
 						{#if doc?.description}
-							<Markdown content={doc.description} linkResolver={linkResolver} />
+							<Markdown content={doc.description} {linkResolver} />
 						{/if}
 
 						<div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,440px)]">
@@ -203,48 +254,44 @@
 								{#if doc?.operationId || doc?.externalDocs || Object.keys(doc?.extensions || {}).length}
 									<details class="rounded-lg border border-muted/20 bg-muted/5 p-4">
 										<summary class="cursor-pointer text-sm font-medium">Details</summary>
-										<div class="mt-3">
-											<Table.Root>
-												<Table.Body>
-													{#if doc.operationId}
-														<Table.Row>
-															<Table.Cell class="font-medium">Operation ID</Table.Cell>
-															<Table.Cell class="font-mono text-sm">{doc.operationId}</Table.Cell>
-														</Table.Row>
-													{/if}
-													{#if doc.deprecated}
-														<Table.Row>
-															<Table.Cell class="font-medium">Deprecated</Table.Cell>
-															<Table.Cell>Yes</Table.Cell>
-														</Table.Row>
-													{/if}
-													{#if doc.externalDocs}
-														<Table.Row>
-															<Table.Cell class="font-medium">External Docs</Table.Cell>
-															<Table.Cell>
-																<a
-																	class="text-primary underline-offset-4 hover:underline"
-																	href={doc.externalDocs.url}
-																	rel="noreferrer"
-																	target="_blank"
-																>
-																	{doc.externalDocs.description || doc.externalDocs.url}
-																</a>
-															</Table.Cell>
-														</Table.Row>
-													{/if}
-													{#if Object.keys(doc.extensions || {}).length}
-														{#each Object.entries(doc.extensions) as [key, value] (key)}
-															<Table.Row>
-																<Table.Cell class="font-medium">{key}</Table.Cell>
-																<Table.Cell class="font-mono text-xs">
-																	{formatExampleValue(value)}
-																</Table.Cell>
-															</Table.Row>
-														{/each}
-													{/if}
-												</Table.Body>
-											</Table.Root>
+										<div class="mt-3 space-y-2">
+											{#if doc.operationId}
+												<div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+													<div class="font-medium">Operation ID</div>
+													<div class="font-mono text-sm break-all">{doc.operationId}</div>
+												</div>
+											{/if}
+											{#if doc.deprecated}
+												<div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+													<div class="font-medium">Deprecated</div>
+													<div>Yes</div>
+												</div>
+											{/if}
+											{#if doc.externalDocs}
+												<div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+													<div class="font-medium">External Docs</div>
+													<div class="break-all">
+														<a
+															class="text-primary underline-offset-4 hover:underline"
+															href={doc.externalDocs.url}
+															rel="noreferrer"
+															target="_blank"
+														>
+															{doc.externalDocs.description || doc.externalDocs.url}
+														</a>
+													</div>
+												</div>
+											{/if}
+											{#if Object.keys(doc.extensions || {}).length}
+												{#each Object.entries(doc.extensions) as [key, value] (key)}
+													<div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+														<div class="font-medium">{key}</div>
+														<div class="font-mono text-xs break-all">
+															{formatExampleValue(value)}
+														</div>
+													</div>
+												{/each}
+											{/if}
 										</div>
 									</details>
 								{/if}
@@ -252,27 +299,20 @@
 								{#if doc?.servers?.length}
 									<details class="rounded-lg border border-muted/20 bg-muted/5 p-4">
 										<summary class="cursor-pointer text-sm font-medium">Servers</summary>
-										<div class="mt-3">
-											<Table.Root>
-												<Table.Header>
-													<Table.Row>
-														<Table.Head>URL</Table.Head>
-														<Table.Head>Description</Table.Head>
-													</Table.Row>
-												</Table.Header>
-												<Table.Body>
-													{#each doc.servers as server (server.url)}
-														<Table.Row>
-															<Table.Cell class="font-mono text-xs">
-																{server.resolvedUrl || server.url}
-															</Table.Cell>
-															<Table.Cell class="text-muted-foreground">
-																{server.description || '—'}
-															</Table.Cell>
-														</Table.Row>
-													{/each}
-												</Table.Body>
-											</Table.Root>
+										<div class="mt-3 space-y-3">
+											{#each doc.servers as server (server.url)}
+												<div class="space-y-1 rounded-md border border-border bg-muted/10 p-2">
+													<div class="text-xs font-medium">URL</div>
+													<div class="font-mono text-xs break-all">
+														{server.resolvedUrl || server.url}
+													</div>
+													{#if server.description}
+														<div class="mt-2 text-xs text-muted-foreground">
+															{server.description}
+														</div>
+													{/if}
+												</div>
+											{/each}
 										</div>
 									</details>
 								{/if}
@@ -323,35 +363,35 @@
 								{#if doc?.parameters?.length}
 									<details class="rounded-lg border border-muted/20 bg-muted/5 p-4" open>
 										<summary class="cursor-pointer text-sm font-medium">Parameters</summary>
-										<div class="mt-3">
-											<Table.Root>
-												<Table.Header>
-													<Table.Row>
-														<Table.Head>Name</Table.Head>
-														<Table.Head>In</Table.Head>
-														<Table.Head>Type</Table.Head>
-														<Table.Head>Required</Table.Head>
-														<Table.Head>Description</Table.Head>
-														<Table.Head>Example</Table.Head>
-													</Table.Row>
-												</Table.Header>
-												<Table.Body>
-													{#each doc.parameters as param (param.name + param.in)}
-														<Table.Row>
-															<Table.Cell class="font-mono text-sm">{param.name}</Table.Cell>
-															<Table.Cell>{param.in}</Table.Cell>
-															<Table.Cell>{formatSchemaType(param.schema)}</Table.Cell>
-															<Table.Cell>{param.required ? 'Yes' : 'No'}</Table.Cell>
-															<Table.Cell class="text-muted-foreground"
-																>{param.description || '—'}</Table.Cell
-															>
-															<Table.Cell class="font-mono text-xs"
-																>{formatExamplesPreview(param.examples)}</Table.Cell
-															>
-														</Table.Row>
-													{/each}
-												</Table.Body>
-											</Table.Root>
+										<div class="mt-3 space-y-3">
+											{#each doc.parameters as param (param.name + param.in)}
+												{@const preview = formatExamplesPreview(param.examples)}
+												<div class="space-y-2 rounded-md border border-border bg-muted/10 p-3">
+													<div class="flex flex-wrap items-start justify-between gap-2">
+														<div class="font-mono text-sm">{param.name}</div>
+														<div class="flex flex-wrap gap-2">
+															<Badge variant="outline">{param.in}</Badge>
+															{#if param.required}
+																<Badge variant="outline" class="text-rose-400">Required</Badge>
+															{/if}
+														</div>
+													</div>
+													<div class="text-xs text-muted-foreground">
+														Type: {formatSchemaType(param.schema)}
+													</div>
+													{#if param.description}
+														<div class="text-sm text-muted-foreground">{param.description}</div>
+													{/if}
+													{#if preview !== '—'}
+														<div class="rounded bg-background/50 p-2">
+															<div class="mb-1 text-xs font-medium text-muted-foreground">
+																Example:
+															</div>
+															<div class="font-mono text-xs break-all">{preview}</div>
+														</div>
+													{/if}
+												</div>
+											{/each}
 										</div>
 									</details>
 								{/if}
@@ -378,7 +418,7 @@
 													{#each doc.requestBody.content as content (content.mediaType)}
 														<Tabs.Content value={content.mediaType} class="space-y-3">
 															{#if content.schema}
-																<SchemaViewer schema={content.schema} />
+																<SchemaViewerMobile schema={content.schema} />
 															{:else}
 																<div class="text-sm text-muted-foreground">No schema</div>
 															{/if}
@@ -466,29 +506,28 @@
 								{/if}
 							</div>
 
-							<div class="space-y-4 self-start lg:sticky lg:top-6">
+							<div class="space-y-4 lg:sticky lg:top-6 lg:self-start">
 								<details
 									open
 									class="overflow-hidden rounded-xl border border-border bg-card/70 text-card-foreground"
 								>
 									<summary
-										class="flex cursor-pointer items-center justify-between border-b border-border px-4 py-3"
+										class="flex cursor-pointer items-center justify-between gap-2 border-b border-border px-4 py-3"
 									>
-										<div class="flex items-center gap-2 text-xs text-muted-foreground">
+										<div class="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
 											<Badge variant="outline" class={methodClass(endpoint.method)}>
 												{endpoint.method}
 											</Badge>
-											<span class="font-mono">{endpoint.path}</span>
+											<span class="truncate font-mono">{endpoint.path}</span>
 										</div>
-										<span class="text-xs tracking-[0.2em] text-muted-foreground uppercase">
+										<span
+											class="text-xs tracking-[0.2em] whitespace-nowrap text-muted-foreground uppercase"
+										>
 											Request
 										</span>
 									</summary>
-									<div class="p-4">
-										<pre
-											class="overflow-auto rounded-md border border-border bg-muted/40 p-3 text-xs leading-relaxed text-foreground">
-{sdkSnippet}
-										</pre>
+									<div class="overflow-hidden p-4">
+										<Editor value={sdkSnippet} language="javascript" disabled={true} />
 									</div>
 								</details>
 
@@ -504,7 +543,7 @@
 										</span>
 									</summary>
 									{#if doc && Object.keys(doc.responses || {}).length}
-										<div class="p-4">
+										<div class="overflow-hidden p-4">
 											<Tabs.Root value={Object.keys(doc.responses)[0]}>
 												<Tabs.List class="mb-3 flex flex-wrap gap-2">
 													{#each Object.keys(doc.responses) as status (status)}
@@ -514,12 +553,9 @@
 
 												{#each Object.keys(doc.responses) as status (status)}
 													{@const responseExample = getResponseExample(doc, status)}
-													<Tabs.Content value={status}>
+													<Tabs.Content value={status} class="overflow-hidden">
 														{#if responseExample}
-															<pre
-																class="rounded-md border border-border bg-muted/40 p-3 text-xs leading-relaxed text-foreground">
-{responseExample}
-															</pre>
+															<Editor value={responseExample} language="json" disabled={true} />
 														{:else}
 															<div class="text-sm text-muted-foreground">No example available.</div>
 														{/if}

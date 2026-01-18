@@ -18,6 +18,8 @@
 	import LayersIcon from '@lucide/svelte/icons/layers';
 	import SendIcon from '@lucide/svelte/icons/send';
 
+	// todo: implement a shortcut on ctrl + enter to not just navigate to the correct page but also open the api client on that endpoint
+
 	let query = $state('');
 	const defaultAction = { label: 'Go to page', icon: SendIcon };
 	const methodPattern = /^(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS|TRACE)\s/;

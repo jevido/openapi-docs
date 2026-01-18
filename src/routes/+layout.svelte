@@ -17,6 +17,8 @@
 
 	let { children } = $props();
 
+	// todo: make the top bar sticky
+
 	onMount(() => {
 		initOpenApi();
 	});
@@ -54,7 +56,7 @@
 
 	<Sidebar.Inset>
 		<header
-			class="flex h-16 shrink-0 items-center gap-2 border-b bg-background/80 px-4 backdrop-blur"
+			class="sticky top-0 z-10 flex h-16 shrink-0 items-center gap-2 border-b bg-background/80 px-4 backdrop-blur"
 		>
 			<Sidebar.Trigger class="-ms-1" />
 			<Separator orientation="vertical" class="me-2 data-[orientation=vertical]:h-4" />

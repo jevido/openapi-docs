@@ -9,7 +9,7 @@
 	import * as Accordion from '$lib/components/ui/accordion/index.js';
 	import * as InputGroup from '$lib/components/ui/input-group/index.js';
 	import { schemaToExample } from '$lib/api/openapi.js';
-	import { activeOpenApiSource, setOpenApiSourceProxy } from '$lib/stores/openapi.js';
+	import { cn } from '$lib/utils';
 	let { endpoint, doc, baseUrl, specUrl = '' } = $props();
 
 	let open = $state(false);
@@ -20,24 +20,17 @@
 	let loading = $state(false);
 	let responseDurationMs = $state(null);
 	let requestAccordion = $state(['query', 'body', 'snippet']);
-	let snippetCopied = $state(false);
-	let proxyEnabled = $state(false);
-	let proxySourceId = $state('');
+	let mobileViewMode = $state('request'); // 'request' or 'response'
 
-	$effect(() => {
-		const nextId = $activeOpenApiSource?.id ?? '';
-		if (nextId !== proxySourceId) {
-			proxySourceId = nextId;
-			proxyEnabled = $activeOpenApiSource?.useProxy ?? false;
-		}
-	});
-
-	$effect(() => {
-		if (!proxySourceId) return;
-		const current = $activeOpenApiSource?.useProxy ?? false;
-		if (proxyEnabled === current) return;
-		setOpenApiSourceProxy(proxySourceId, proxyEnabled);
-	});
+	// todo: remove manual fetch use jevido-sdk instead
+	// todo: fix the data leak, 1600 requests aint normal with 136mb download
+	// todo: add a before request, and after response script option (these scripts should add a editor with javascript, and users should not HAVE to write fetch themselves they can, but jevido-sdk is available to the script), there should be a global variable for them (mind you this is endpoint & openapi bound, not just 1 of the 2), and the response script should have a const called "response" which contains the response value (not just body, but the body is parsed as json)
+	// todo: implement a way to share the requests/response scripts
+	// todo: make the component responsive for smaller screens
+	// todo: stylize the component so it has a more modern look
+	// todo: the url related query params should be locked as they are required for the url to be build. So your should not be able to remove the query parameters such as :guildId, but you can remove url search parameters such as ?limit=x
+	// todo: write the correct snippet for bakery-sdk, the createSDK accepts 1 param, a string to this openapi.json specs like so: const sdk = await createSDK("https://api.example.com/openapi.json");
+	// todo: allow injecting variables to the request body, such as {token} or {user.id}
 
 	function methodBadgeClass(method) {
 		switch (method) {
@@ -61,10 +54,6 @@
 		if (base.endsWith('/') && path.startsWith('/')) return `${base.slice(0, -1)}${path}`;
 		if (!base.endsWith('/') && !path.startsWith('/')) return `${base}/${path}`;
 		return `${base}${path}`;
-	}
-
-	function buildProxyUrl(url) {
-		return `/api/proxy?url=${encodeURIComponent(url)}`;
 	}
 
 	function resolveSpecBase() {
@@ -131,10 +120,21 @@
 	}
 
 	function removeRow(list, id) {
+		// Check if this is a path parameter (from pathParamKeys) - prevent deletion
+		const row = list.find((r) => r.id === id);
+		if (row && pathParamKeys.includes(row.key.trim())) {
+			// Path parameters cannot be removed
+			return;
+		}
+
 		const index = list.findIndex((row) => row.id === id);
 		if (index !== -1) {
 			list.splice(index, 1);
 		}
+	}
+
+	function isPathParameter(key) {
+		return pathParamKeys.includes(key.trim());
 	}
 
 	function buildUrlWithParams(rawUrl, params, pathParams = []) {
@@ -269,7 +269,39 @@
 		const optionsBlock = options.length ? `, {\n  ${options.join(',\n  ')}\n}` : '';
 		const supportsBody = !['GET', 'HEAD'].includes(endpoint.method);
 		const bodyValue = formatSdkBody(bodyTextValue);
-		const callLine = supportsBody ? `${sdkAccess}(${bodyValue})` : `${sdkAccess}()`;
+
+		// Collect query parameters
+		let callLine = '';
+		if (supportsBody) {
+			callLine = `${sdkAccess}(${bodyValue})`;
+		} else {
+			// For GET/HEAD requests, include query parameters
+			const queryParams =
+				doc?.parameters
+					?.filter((param) => param.in === 'query')
+					?.map((param) => ({
+						name: param.name,
+						schema: param.schema
+					})) || [];
+
+			if (queryParams.length > 0) {
+				const paramLines = queryParams
+					.map((param) => {
+						const schemaType = param.schema?.type;
+						let exampleValue = '';
+						if (schemaType === 'integer') exampleValue = '64';
+						else if (schemaType === 'number') exampleValue = '64';
+						else if (param.schema?.enum?.length) exampleValue = `"${param.schema.enum[0]}"`;
+						else exampleValue = '""';
+						return `  ${param.name}: ${exampleValue}`;
+					})
+					.join(',\n');
+				callLine = `${sdkAccess}({\n${paramLines}\n})`;
+			} else {
+				callLine = `${sdkAccess}()`;
+			}
+		}
+
 		return [
 			'import { createSDK } from "jevido-sdk";',
 			'',
@@ -279,50 +311,6 @@
 		].join('\n');
 	});
 
-	async function copySnippet() {
-		try {
-			await navigator.clipboard.writeText(sdkSnippet.trim());
-			snippetCopied = true;
-			setTimeout(() => {
-				snippetCopied = false;
-			}, 1200);
-		} catch {
-			snippetCopied = false;
-		}
-	}
-
-	function formatJson(text, spaces = 2) {
-		const parsed = JSON.parse(text);
-
-		return JSON.stringify(parsed, null, spaces);
-	}
-
-	function formatBodyJson(spaces = 2) {
-		bodyJsonError = '';
-
-		const snapshot = bodyTextValue;
-
-		try {
-			let text = formatJson(bodyTextDefault, spaces);
-
-			if (spaces > 0) {
-				text = formatJson(text, spaces);
-			}
-
-			bodyTextDirty = snapshot !== text;
-			bodyTextDraft = text;
-			bodyTextValue = text;
-		} catch (error) {
-			bodyJsonError = error?.message ?? 'Invalid JSON.';
-		}
-	}
-
-	function resetBodyJson() {
-		bodyTextDraft = bodyTextDefault;
-		bodyTextDirty = false;
-		bodyJsonError = '';
-	}
-
 	async function sendRequest() {
 		loading = true;
 		errorText = '';
@@ -331,9 +319,8 @@
 		responseDurationMs = null;
 
 		const start = performance.now();
-		const rawUrl = requestUrlWithParams.trim() || requestUrl;
-		const absoluteUrl = toAbsoluteUrl(rawUrl);
-		const url = proxyEnabled ? buildProxyUrl(absoluteUrl) : rawUrl;
+		const url = requestUrlWithParams.trim() || requestUrl;
+		const absoluteUrl = toAbsoluteUrl(url);
 
 		const supportsBody = !['GET', 'HEAD'].includes(endpoint.method);
 		let body;
@@ -380,10 +367,12 @@
 <svelte:window onkeydown={handleShortcut} />
 
 {#snippet panelContent()}
-	<div class="flex h-full flex-col">
-		<div class="border-b border-border bg-muted/40 px-6 py-4">
-			<div class="flex flex-wrap items-center gap-3">
-				<InputGroup.Root class="max-w-3xl">
+	<div class="flex h-full min-h-0 flex-col">
+		<div
+			class="shrink-0 border-b border-border bg-muted/40 px-2 py-2 sm:px-3 sm:py-3 lg:px-6 lg:py-4"
+		>
+			<div class="flex flex-col gap-2 sm:gap-3 lg:flex-row lg:flex-wrap lg:items-center">
+				<InputGroup.Root class="w-full lg:max-w-3xl">
 					<InputGroup.Addon>
 						<Badge variant="outline" class={methodBadgeClass(endpoint.method)}>
 							{endpoint.method}
@@ -397,26 +386,52 @@
 						onfocus={(event) => event.currentTarget?.select()}
 					/>
 				</InputGroup.Root>
-				<Button size="sm" onclick={sendRequest} disabled={loading}>
+				<Button
+					size="sm"
+					onclick={sendRequest}
+					disabled={loading}
+					class="w-full sm:w-auto lg:w-auto"
+				>
 					{loading ? 'Sending...' : 'Send'}
 				</Button>
 			</div>
 		</div>
 
-		<div class="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
-			<div class="flex min-h-0 flex-col border-b border-border lg:border-r lg:border-b-0">
+		<div
+			class="grid min-h-0 flex-1 grid-cols-1 gap-0 overflow-hidden md:grid-cols-1 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]"
+		>
+			<div
+				class={cn(
+					'flex min-h-0 flex-col border-b border-border lg:border-r lg:border-b-0',
+					mobileViewMode === 'response' ? 'hidden lg:flex' : 'flex'
+				)}
+			>
 				<div
-					class="border-b border-border px-6 py-3 text-xs tracking-[0.2em] text-muted-foreground uppercase"
+					class="flex shrink-0 items-center justify-between border-b border-border px-2 py-2 text-xs tracking-[0.2em] text-muted-foreground uppercase sm:px-3 sm:py-3 lg:justify-start lg:px-6 lg:py-3"
 				>
 					Request Builder
+					<Button
+						size="icon-sm"
+						variant="ghost"
+						aria-label="View response"
+						class="lg:hidden"
+						onclick={() => (mobileViewMode = 'response')}
+					>
+						→
+					</Button>
 				</div>
-				<div class="h-auto flex-1 overflow-y-auto">
+				<div class="min-h-0 flex-1 overflow-y-auto">
 					<!-- todo: find out why h-[1px] gives auto height, h-auto doesnt -->
-					<div class="h-[1px] w-full space-y-2 px-6 py-4 text-xs text-muted-foreground">
+					<div
+						class="h-auto w-full space-y-2 px-2 py-2 text-xs text-muted-foreground sm:px-3 sm:py-3 lg:px-6 lg:py-4"
+					>
 						<Accordion.Root type="multiple" bind:value={requestAccordion} class="space-y-2">
-							<Accordion.Item value="auth" class="rounded-md border border-border bg-muted/20 px-3">
+							<Accordion.Item
+								value="auth"
+								class="rounded-md border border-border bg-muted/20 px-2 sm:px-3 lg:px-3"
+							>
 								<Accordion.Trigger
-									class="py-3 text-xs tracking-[0.2em] text-muted-foreground uppercase"
+									class="py-2 text-xs tracking-[0.2em] text-muted-foreground uppercase sm:py-2 lg:py-3"
 								>
 									Authentication
 								</Accordion.Trigger>
@@ -436,10 +451,10 @@
 
 							<Accordion.Item
 								value="query"
-								class="rounded-md border border-border bg-muted/20 px-3"
+								class="rounded-md border border-border bg-muted/20 px-2 sm:px-3 lg:px-3"
 							>
 								<Accordion.Trigger
-									class="py-3 text-xs tracking-[0.2em] text-muted-foreground uppercase"
+									class="py-2 text-xs tracking-[0.2em] text-muted-foreground uppercase sm:py-2 lg:py-3"
 								>
 									Query Parameters
 								</Accordion.Trigger>
@@ -449,12 +464,13 @@
 											<div
 												class="grid grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)_auto] items-center gap-2"
 											>
-												<Checkbox bind:checked={row.enabled} />
+												<Checkbox bind:checked={row.enabled} disabled={isPathParameter(row.key)} />
 												<InputGroup.Root class="h-8">
 													<InputGroup.Input
 														class="text-xs"
 														placeholder="Key"
 														bind:value={row.key}
+														readonly={isPathParameter(row.key)}
 													/>
 												</InputGroup.Root>
 												<InputGroup.Root class="h-8">
@@ -468,6 +484,7 @@
 													size="icon-sm"
 													variant="ghost"
 													aria-label="Remove query param"
+													disabled={isPathParameter(row.key)}
 													onclick={() => removeRow(queryRows, row.id)}
 												>
 													x
@@ -481,10 +498,10 @@
 
 							<Accordion.Item
 								value="headers"
-								class="rounded-md border border-border bg-muted/20 px-3"
+								class="rounded-md border border-border bg-muted/20 px-2 sm:px-3 lg:px-3"
 							>
 								<Accordion.Trigger
-									class="py-3 text-xs tracking-[0.2em] text-muted-foreground uppercase"
+									class="py-2 text-xs tracking-[0.2em] text-muted-foreground uppercase sm:py-2 lg:py-3"
 								>
 									Request Headers
 								</Accordion.Trigger>
@@ -524,55 +541,31 @@
 								</Accordion.Content>
 							</Accordion.Item>
 
-							<Accordion.Item value="body" class="rounded-md border border-border bg-muted/20 px-3">
+							<Accordion.Item
+								value="body"
+								class="rounded-md border border-border bg-muted/20 px-2 sm:px-3 lg:px-3"
+							>
 								<Accordion.Trigger
-									class="py-3 text-xs tracking-[0.2em] text-muted-foreground uppercase"
+									class="py-2 text-xs tracking-[0.2em] text-muted-foreground uppercase sm:py-2 lg:py-3"
 								>
 									Request Body
 								</Accordion.Trigger>
 								<Accordion.Content class="pt-1">
-									<div class="flex flex-wrap items-center gap-2 text-xs">
-										<Button size="sm" variant="ghost" onclick={() => formatBodyJson(2)}>
-											Format JSON
-										</Button>
-										<Button size="sm" variant="ghost" onclick={() => formatBodyJson(0)}>
-											Minify
-										</Button>
-										<Button size="sm" variant="ghost" onclick={resetBodyJson}>Reset</Button>
-										{#if bodyJsonError}
-											<span class="text-destructive">{bodyJsonError}</span>
-										{/if}
-									</div>
-
-									<InputGroup.Root>
-										<InputGroup.Addon align="block-start">
-											<InputGroup.Text class="font-mono text-xs tracking-[0.2em] uppercase">
-												JSON
-											</InputGroup.Text>
-										</InputGroup.Addon>
-
-										<Editor bind:value={bodyTextValue} handleSubmit={sendRequest} />
-									</InputGroup.Root>
+									<Editor language="json" bind:value={bodyTextValue} handleSubmit={sendRequest} />
 								</Accordion.Content>
 							</Accordion.Item>
 
 							<Accordion.Item
 								value="snippet"
-								class="rounded-md border border-border bg-muted/20 px-3"
+								class="rounded-md border border-border bg-muted/20 px-2 sm:px-3 lg:px-3"
 							>
 								<Accordion.Trigger
-									class="py-3 text-xs tracking-[0.2em] text-muted-foreground uppercase"
+									class="py-2 text-xs tracking-[0.2em] text-muted-foreground uppercase sm:py-2 lg:py-3"
 								>
 									Code Snippet
 								</Accordion.Trigger>
 								<Accordion.Content class="pt-1">
-									<div class="flex items-center justify-end pb-2">
-										<Button size="sm" variant="ghost" onclick={copySnippet}>
-											{snippetCopied ? 'Copied' : 'Copy'}
-										</Button>
-									</div>
-									<pre
-										class="overflow-auto rounded-md border border-border bg-muted/40 p-3 text-xs leading-relaxed text-muted-foreground">{sdkSnippet.trim()}</pre>
+									<Editor language="javascript" disabled={true} value={sdkSnippet}></Editor>
 								</Accordion.Content>
 							</Accordion.Item>
 						</Accordion.Root>
@@ -580,14 +573,28 @@
 				</div>
 			</div>
 
-			<div class="flex min-h-0 flex-col">
+			<div
+				class={cn(
+					'flex min-h-0 flex-col',
+					mobileViewMode === 'request' ? 'hidden lg:flex' : 'flex'
+				)}
+			>
 				<div
-					class="border-b border-border px-6 py-3 text-xs tracking-[0.2em] text-muted-foreground uppercase"
+					class="flex shrink-0 items-center justify-between border-b border-border px-2 py-2 text-xs tracking-[0.2em] text-muted-foreground uppercase sm:px-3 sm:py-3 lg:justify-start lg:px-6 lg:py-3"
 				>
 					Response
+					<Button
+						size="icon-sm"
+						variant="ghost"
+						aria-label="Back to request"
+						class="lg:hidden"
+						onclick={() => (mobileViewMode = 'request')}
+					>
+						←
+					</Button>
 				</div>
 				<div class="min-h-0 flex-1 overflow-y-auto">
-					<div class="px-6 py-6">
+					<div class="h-auto px-2 py-2 sm:px-3 sm:py-3 lg:px-6 lg:py-6">
 						{#if errorText}
 							<div
 								class="rounded-md border border-destructive/40 bg-destructive/10 p-4 text-xs text-destructive"
@@ -606,7 +613,7 @@
 							</div>
 						{:else}
 							<div
-								class="flex min-h-[360px] flex-col items-center justify-center gap-6 text-muted-foreground"
+								class="flex min-h-90 flex-col items-center justify-center gap-6 text-muted-foreground"
 							>
 								<pre class="text-xs leading-tight text-muted-foreground">
 ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣠⣤⣶⣲⣻⣿⢯⡿⣟⣿⣟⣶⣶⣤⣄⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
@@ -654,14 +661,18 @@
 					</div>
 				</div>
 				<div
-					class="flex items-center justify-end gap-2 border-t border-border px-6 py-3 text-xs text-muted-foreground"
+					class="flex flex-shrink-0 flex-col-reverse items-center justify-end gap-2 border-t border-border px-2 py-2 text-xs text-muted-foreground sm:flex-row sm:px-3 sm:py-3 lg:px-6 lg:py-3"
 				>
-					<div class="flex items-center gap-2">
+					<div class="flex flex-wrap items-center justify-center gap-1 sm:gap-2">
 						Send Request
-						<span class="rounded-md border border-border bg-muted px-2 py-1 text-foreground">
+						<span
+							class="rounded-md border border-border bg-muted px-1 py-1 text-xs text-foreground sm:px-2 sm:py-1"
+						>
 							Ctrl
 						</span>
-						<span class="rounded-md border border-border bg-muted px-2 py-1 text-foreground">
+						<span
+							class="rounded-md border border-border bg-muted px-1 py-1 text-xs text-foreground sm:px-2 sm:py-1"
+						>
 							Enter
 						</span>
 					</div>
@@ -689,7 +700,7 @@
 		Open API Client
 	</Button>
 	<Dialog.Content
-		class="h-[84vh] w-[96vw] max-w-7xl overflow-hidden border border-border bg-card p-0 text-card-foreground shadow-2xl"
+		class="flex h-[90vh] w-[98vw] max-w-7xl flex-col overflow-hidden border border-border bg-card p-0 text-card-foreground shadow-2xl sm:h-[88vh] sm:w-[95vw] lg:h-[84vh] lg:w-[96vw]"
 	>
 		{@render panelContent()}
 	</Dialog.Content>

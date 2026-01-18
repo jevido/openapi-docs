@@ -36,7 +36,6 @@
 	let query = $state('');
 	let addDialogOpen = $state(false);
 	let newSourceUrl = $state('');
-	let newSourceUseProxy = $state(false);
 	let addError = $state('');
 
 	const endpointsByTag = $derived.by(() => ($openapiSpecs ? getEndpointsByTag($openapiSpecs) : {}));
@@ -92,7 +91,6 @@
 		addDialogOpen = true;
 		addError = '';
 		newSourceUrl = '';
-		newSourceUseProxy = false;
 	}
 
 	async function handleAddSource(event) {
@@ -101,7 +99,7 @@
 			addError = 'Enter a valid OpenAPI URL.';
 			return;
 		}
-		const result = await addOpenApiSource({ url: newSourceUrl, useProxy: newSourceUseProxy });
+		const result = await addOpenApiSource({ url: newSourceUrl });
 		if (!result?.ok) {
 			addError = 'Unable to load that OpenAPI URL.';
 			return;
@@ -250,9 +248,9 @@
 															variant="ghost"
 															{...props}
 															href={endpoint.url}
-															class="h-auto w-full items-start justify-between gap-2 p-0 text-left text-xs leading-snug whitespace-normal"
+															class="h-auto w-full  items-center justify-between gap-2 p-0.5 text-left text-sm leading-snug whitespace-normal"
 														>
-															<span class="min-w-0 flex-1 text-pretty break-words">
+															<span class="min-w-0 flex-1 text-pretty wrap-break-word">
 																{endpoint.title}
 															</span>
 															<Badge
@@ -279,7 +277,7 @@
 </Sidebar.Root>
 
 <Dialog.Root bind:open={addDialogOpen}>
-	<Dialog.Content class="sm:max-w-[420px]">
+	<Dialog.Content class="sm:max-w-105">
 		<Dialog.Header>
 			<Dialog.Title>Add documentation</Dialog.Title>
 			<Dialog.Description>Paste an OpenAPI JSON URL to add it to the list.</Dialog.Description>
@@ -293,12 +291,6 @@
 					placeholder="https://example.com/openapi.json"
 					bind:value={newSourceUrl}
 				/>
-			</div>
-			<div class="flex items-center gap-2">
-				<Checkbox id="openapi-proxy" bind:checked={newSourceUseProxy} />
-				<Label for="openapi-proxy" class="text-sm font-medium">
-					(experimental feature) Proxy requests via this app
-				</Label>
 			</div>
 			{#if addError}
 				<p class="text-sm text-destructive">{addError}</p>

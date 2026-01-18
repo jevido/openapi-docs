@@ -1,10 +1,9 @@
 <script>
 	import { Badge } from '$lib/components/ui/badge/index.js';
-	import Recursive from '../components/schema-viewer.svelte';
+	import * as Accordion from '$lib/components/ui/accordion/index.js';
+	import Recursive from './schema-viewer-mobile.svelte';
 
 	let { schema } = $props();
-
-	// Import self recursively under a different name
 
 	function resolveType(schema) {
 		if (!schema) return '—';
@@ -56,32 +55,37 @@
 
 		<!-- ONE OF / ANY OF / ALL OF -->
 		{#if schema.oneOf || schema.anyOf || schema.allOf}
-			{#each schema.oneOf || schema.anyOf || schema.allOf as subSchema, i}
-				<div class="rounded-lg border p-3">
-					<div class="mb-2 text-xs text-muted-foreground">
-						{schema.oneOf ? 'One of' : schema.anyOf ? 'Any of' : 'All of'} #{i + 1}
-					</div>
-					<Recursive schema={subSchema} />
-				</div>
-			{/each}
+			<Accordion.Root type="multiple" class="space-y-2">
+				{#each schema.oneOf || schema.anyOf || schema.allOf as subSchema, i}
+					<Accordion.Item value={`item-${i}`} class="rounded-lg border p-3">
+						<Accordion.Trigger class="py-2 text-xs font-medium">
+							{schema.oneOf ? 'One of' : schema.anyOf ? 'Any of' : 'All of'} #{i + 1}
+						</Accordion.Trigger>
+						<Accordion.Content class="pt-3">
+							<Recursive schema={subSchema} />
+						</Accordion.Content>
+					</Accordion.Item>
+				{/each}
+			</Accordion.Root>
 		{/if}
 
 		<!-- OBJECT -->
 		{#if schema.type === 'object' && schema.properties}
-			<div class="divide-y overflow-x-auto rounded-lg border">
+			<Accordion.Root type="multiple" class="space-y-2">
 				{#each Object.entries(schema.properties) as [key, value]}
-					<div class="flex flex-col gap-3 p-3 sm:flex-row sm:items-start sm:gap-4">
-						<div class="w-full shrink-0 sm:w-48">
-							<div class="font-mono text-sm break-all">{key}</div>
-							<div class="text-xs text-muted-foreground">
-								{resolveType(value)}
-								{#if schema.required?.includes(key)}
-									<span class="ms-1 text-rose-400">*</span>
-								{/if}
+					<Accordion.Item value={key} class="rounded-lg border p-3">
+						<Accordion.Trigger class="py-2 font-mono text-sm">
+							<div class="flex items-center justify-between gap-2 text-left">
+								<span>{key}</span>
+								<span class="text-xs text-muted-foreground">
+									{resolveType(value)}
+									{#if schema.required?.includes(key)}
+										<span class="ms-1 text-rose-400">*</span>
+									{/if}
+								</span>
 							</div>
-						</div>
-
-						<div class="min-w-0 flex-1 space-y-1">
+						</Accordion.Trigger>
+						<Accordion.Content class="space-y-2 pt-3">
 							{#if value.description}
 								<div class="text-sm text-muted-foreground">{value.description}</div>
 							{/if}
@@ -111,10 +115,10 @@
 							{:else if isPrimitive(value.type)}
 								<div class="text-xs text-muted-foreground">{value.type}</div>
 							{/if}
-						</div>
-					</div>
+						</Accordion.Content>
+					</Accordion.Item>
 				{/each}
-			</div>
+			</Accordion.Root>
 		{/if}
 
 		<!-- ARRAY -->

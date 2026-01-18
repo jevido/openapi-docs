@@ -35,13 +35,13 @@
 			<Card.Root class="border-muted/40 bg-background/60">
 				<Card.Header class="space-y-2">
 					<Card.Title class="text-2xl">{info.title || 'API documentation'}</Card.Title>
-						<Card.Description>
-							{#if info.description}
-								<Markdown content={info.description} linkResolver={linkResolver} />
-							{:else}
-								Explore endpoints, schemas, and authentication details.
-							{/if}
-						</Card.Description>
+					<Card.Description>
+						{#if info.description}
+							<Markdown content={info.description} {linkResolver} />
+						{:else}
+							Explore endpoints, schemas, and authentication details.
+						{/if}
+					</Card.Description>
 				</Card.Header>
 				<Card.Content class="flex flex-wrap items-center gap-2">
 					<Badge variant="outline">OpenAPI {openApiVersion}</Badge>
