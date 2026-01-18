@@ -354,16 +354,28 @@
 					headers,
 					body,
 					// Allow modifying request properties
-					setUrl(newUrl) { url = newUrl; },
-					setBody(newBody) { body = newBody; },
-					setHeader(key, value) { headers[key] = value; },
-					removeHeader(key) { delete headers[key]; }
+					setUrl(newUrl) {
+						url = newUrl;
+					},
+					setBody(newBody) {
+						body = newBody;
+					},
+					setHeader(key, value) {
+						headers[key] = value;
+					},
+					removeHeader(key) {
+						delete headers[key];
+					}
 				};
 
 				// Create function from script and execute it
-				const beforeFn = new Function('request', 'sdk', `return (async () => {
+				const beforeFn = new Function(
+					'request',
+					'sdk',
+					`return (async () => {
   ${beforeRequestScript}
-})()`);
+})()`
+				);
 				await beforeFn(requestContext, sdk);
 			} catch (error) {
 				errorText = `Before Request Script Error: ${error?.message ?? 'Unknown error'}`;
@@ -402,13 +414,19 @@
 						body: parsedResponse,
 						text,
 						// Allow modifying response display
-						setResponseText(newText) { responseText = newText; }
+						setResponseText(newText) {
+							responseText = newText;
+						}
 					};
 
 					// Create function from script and execute it
-					const afterFn = new Function('response', 'sdk', `return (async () => {
+					const afterFn = new Function(
+						'response',
+						'sdk',
+						`return (async () => {
   ${afterResponseScript}
-})()`);
+})()`
+					);
 					await afterFn(responseContext, sdk);
 				} catch (error) {
 					console.error('After Response Script Error:', error);
@@ -438,7 +456,7 @@
 		if (open) {
 			beforeRequestScript = loadScriptFromStorage('before-request');
 			afterResponseScript = loadScriptFromStorage('after-response');
-			
+
 			// Initialize SDK
 			if (specUrl) {
 				try {
@@ -509,7 +527,9 @@
 				)}
 			>
 				<Tabs.Root value="request" class="flex min-h-0 flex-col">
-					<Tabs.List class="w-full justify-start rounded-none border-b border-border bg-muted/40 px-2 sm:px-3 lg:px-6">
+					<Tabs.List
+						class="w-full justify-start rounded-none border-b border-border bg-muted/40 px-2 sm:px-3 lg:px-6"
+					>
 						<Tabs.Trigger value="before-request" class="rounded-t-md">Before Request</Tabs.Trigger>
 						<Tabs.Trigger value="request" class="rounded-t-md">Request Builder</Tabs.Trigger>
 						<Tabs.Trigger value="after-response" class="rounded-t-md">After Response</Tabs.Trigger>
@@ -525,18 +545,29 @@
 					</Tabs.List>
 
 					<Tabs.Content value="before-request" class="min-h-0 flex-1 overflow-y-auto">
-						<div class="h-auto w-full space-y-2 px-2 py-2 text-xs text-muted-foreground sm:px-3 sm:py-3 lg:px-6 lg:py-4">
+						<div
+							class="h-auto w-full space-y-2 px-2 py-2 text-xs text-muted-foreground sm:px-3 sm:py-3 lg:px-6 lg:py-4"
+						>
 							<div class="mb-4 rounded-md bg-muted/20 p-3">
 								<p class="text-xs text-muted-foreground">
-									JavaScript executed before sending the request. Access request details via the <code class="bg-muted px-1 rounded">request</code> object and the SDK via <code class="bg-muted px-1 rounded">sdk</code>.
+									JavaScript executed before sending the request. Access request details via the <code
+										class="rounded bg-muted px-1">request</code
+									>
+									object and the SDK via <code class="rounded bg-muted px-1">sdk</code>.
 								</p>
 							</div>
-							<Editor language="javascript" bind:value={beforeRequestScript} handleSubmit={sendRequest} />
+							<Editor
+								language="javascript"
+								bind:value={beforeRequestScript}
+								handleSubmit={sendRequest}
+							/>
 						</div>
 					</Tabs.Content>
 
 					<Tabs.Content value="request" class="min-h-0 flex-1 overflow-y-auto">
-						<div class="h-auto w-full space-y-2 px-2 py-2 text-xs text-muted-foreground sm:px-3 sm:py-3 lg:px-6 lg:py-4">
+						<div
+							class="h-auto w-full space-y-2 px-2 py-2 text-xs text-muted-foreground sm:px-3 sm:py-3 lg:px-6 lg:py-4"
+						>
 							<Accordion.Root type="multiple" bind:value={requestAccordion} class="space-y-2">
 								<Accordion.Item
 									value="auth"
@@ -576,7 +607,10 @@
 												<div
 													class="grid grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)_auto] items-center gap-2"
 												>
-													<Checkbox bind:checked={row.enabled} disabled={isPathParameter(row.key)} />
+													<Checkbox
+														bind:checked={row.enabled}
+														disabled={isPathParameter(row.key)}
+													/>
 													<InputGroup.Root class="h-8">
 														<InputGroup.Input
 															class="text-xs"
@@ -685,13 +719,22 @@
 					</Tabs.Content>
 
 					<Tabs.Content value="after-response" class="min-h-0 flex-1 overflow-y-auto">
-						<div class="h-auto w-full space-y-2 px-2 py-2 text-xs text-muted-foreground sm:px-3 sm:py-3 lg:px-6 lg:py-4">
+						<div
+							class="h-auto w-full space-y-2 px-2 py-2 text-xs text-muted-foreground sm:px-3 sm:py-3 lg:px-6 lg:py-4"
+						>
 							<div class="mb-4 rounded-md bg-muted/20 p-3">
 								<p class="text-xs text-muted-foreground">
-									JavaScript executed after receiving the response. Access the response via the <code class="bg-muted px-1 rounded">response</code> object and the SDK via <code class="bg-muted px-1 rounded">sdk</code>.
+									JavaScript executed after receiving the response. Access the response via the <code
+										class="rounded bg-muted px-1">response</code
+									>
+									object and the SDK via <code class="rounded bg-muted px-1">sdk</code>.
 								</p>
 							</div>
-							<Editor language="javascript" bind:value={afterResponseScript} handleSubmit={sendRequest} />
+							<Editor
+								language="javascript"
+								bind:value={afterResponseScript}
+								handleSubmit={sendRequest}
+							/>
 						</div>
 					</Tabs.Content>
 				</Tabs.Root>
@@ -730,7 +773,7 @@
 								<p class="text-xs tracking-[0.2em] text-muted-foreground uppercase">
 									{responseStatus}
 								</p>
-								<div class="rounded-md border border-border overflow-hidden">
+								<div class="overflow-hidden rounded-md border border-border">
 									<Editor language="json" disabled={true} value={responseText} />
 								</div>
 							</div>
