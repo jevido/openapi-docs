@@ -5,11 +5,12 @@
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Checkbox } from '$lib/components/ui/checkbox/index.js';
-	import { Label } from '$lib/components/ui/label/index.js';
 	import * as Accordion from '$lib/components/ui/accordion/index.js';
+	import * as Tabs from '$lib/components/ui/tabs/index.js';
 	import * as InputGroup from '$lib/components/ui/input-group/index.js';
 	import { schemaToExample } from '$lib/api/openapi.js';
 	import { cn } from '$lib/utils';
+	import { createSDK } from 'jevido-sdk';
 	let { endpoint, doc, baseUrl, specUrl = '' } = $props();
 
 	let open = $state(false);
@@ -22,6 +23,10 @@
 	let requestAccordion = $state(['query', 'body', 'snippet']);
 	let mobileViewMode = $state('request'); // 'request' or 'response'
 
+	let beforeRequestScript = $state('');
+	let afterResponseScript = $state('');
+	let sdk = $state(null);
+
 	// todo: remove manual fetch use jevido-sdk instead
 	// todo: fix the data leak, 1600 requests aint normal with 136mb download
 	// todo: add a before request, and after response script option (these scripts should add a editor with javascript, and users should not HAVE to write fetch themselves they can, but jevido-sdk is available to the script), there should be a global variable for them (mind you this is endpoint & openapi bound, not just 1 of the 2), and the response script should have a const called "response" which contains the response value (not just body, but the body is parsed as json)
@@ -31,6 +36,29 @@
 	// todo: the url related query params should be locked as they are required for the url to be build. So your should not be able to remove the query parameters such as :guildId, but you can remove url search parameters such as ?limit=x
 	// todo: write the correct snippet for bakery-sdk, the createSDK accepts 1 param, a string to this openapi.json specs like so: const sdk = await createSDK("https://api.example.com/openapi.json");
 	// todo: allow injecting variables to the request body, such as {token} or {user.id}
+
+	function getStorageKey(prefix) {
+		const endpointId = `${endpoint.path}::${endpoint.method}`;
+		return `endpoint-scripts:${endpointId}:${prefix}`;
+	}
+
+	function loadScriptFromStorage(prefix) {
+		if (typeof localStorage === 'undefined') return '';
+		try {
+			return localStorage.getItem(getStorageKey(prefix)) || '';
+		} catch {
+			return '';
+		}
+	}
+
+	function saveScriptToStorage(prefix, script) {
+		if (typeof localStorage === 'undefined') return;
+		try {
+			localStorage.setItem(getStorageKey(prefix), script);
+		} catch {
+			console.error('Failed to save script to localStorage');
+		}
+	}
 
 	function methodBadgeClass(method) {
 		switch (method) {
@@ -209,11 +237,8 @@
 		return headers;
 	}
 
-	let requestHeaders = $derived.by(() => buildHeaders({ includeContentType: true }));
-
 	let bodyTextDraft = $state('');
 	let bodyTextDirty = $state(false);
-	let bodyJsonError = $state('');
 	let bodyTextDefault = $derived.by(() => {
 		if (!open) return '';
 		const schema = doc?.requestBodySchema;
@@ -319,16 +344,40 @@
 		responseDurationMs = null;
 
 		const start = performance.now();
-		const url = requestUrlWithParams.trim() || requestUrl;
+		let url = requestUrlWithParams.trim() || requestUrl;
 		const absoluteUrl = toAbsoluteUrl(url);
 
 		const supportsBody = !['GET', 'HEAD'].includes(endpoint.method);
-		let body;
+		let body = supportsBody && bodyTextValue.trim() ? bodyTextValue : undefined;
 
-		const headers = buildHeaders({ includeContentType: supportsBody });
+		let headers = buildHeaders({ includeContentType: supportsBody });
 
-		if (supportsBody && bodyTextValue.trim()) {
-			body = bodyTextValue;
+		// Execute before-request script
+		if (beforeRequestScript.trim()) {
+			try {
+				const requestContext = {
+					url,
+					method: endpoint.method,
+					headers,
+					body,
+					// Allow modifying request properties
+					setUrl(newUrl) { url = newUrl; },
+					setBody(newBody) { body = newBody; },
+					setHeader(key, value) { headers[key] = value; },
+					removeHeader(key) { delete headers[key]; }
+				};
+
+				// Create function from script and execute it
+				const beforeFn = new Function('request', 'sdk', `return (async () => {
+  ${beforeRequestScript}
+})()`);
+				await beforeFn(requestContext, sdk);
+			} catch (error) {
+				errorText = `Before Request Script Error: ${error?.message ?? 'Unknown error'}`;
+				responseDurationMs = Math.round(performance.now() - start);
+				loading = false;
+				return;
+			}
 		}
 
 		try {
@@ -341,11 +390,39 @@
 			responseStatus = `${res.status} ${res.statusText}`;
 			const text = await res.text();
 
+			let parsedResponse;
 			try {
-				responseText = JSON.stringify(JSON.parse(text), null, 2);
+				parsedResponse = JSON.parse(text);
+				responseText = JSON.stringify(parsedResponse, null, 2);
 			} catch {
 				responseText = text;
+				parsedResponse = text;
 			}
+
+			// Execute after-response script
+			if (afterResponseScript.trim()) {
+				try {
+					const responseContext = {
+						status: res.status,
+						statusText: res.statusText,
+						headers: Object.fromEntries(res.headers.entries()),
+						body: parsedResponse,
+						text,
+						// Allow modifying response display
+						setResponseText(newText) { responseText = newText; }
+					};
+
+					// Create function from script and execute it
+					const afterFn = new Function('response', 'sdk', `return (async () => {
+  ${afterResponseScript}
+})()`);
+					await afterFn(responseContext, sdk);
+				} catch (error) {
+					console.error('After Response Script Error:', error);
+					// Don't fail the request, just log the error
+				}
+			}
+
 			responseDurationMs = Math.round(performance.now() - start);
 		} catch (error) {
 			errorText = error?.message ?? 'Request failed.';
@@ -362,6 +439,38 @@
 			sendRequest();
 		}
 	}
+
+	$effect(async () => {
+		// Load scripts and initialize SDK when dialog opens
+		if (open) {
+			beforeRequestScript = loadScriptFromStorage('before-request');
+			afterResponseScript = loadScriptFromStorage('after-response');
+			
+			// Initialize SDK
+			if (specUrl) {
+				try {
+					sdk = await createSDK(specUrl);
+				} catch (error) {
+					console.error('Failed to initialize SDK:', error);
+					sdk = null;
+				}
+			}
+		}
+	});
+
+	$effect(() => {
+		// Save scripts when they change
+		if (open) {
+			saveScriptToStorage('before-request', beforeRequestScript);
+		}
+	});
+
+	$effect(() => {
+		// Save scripts when they change
+		if (open) {
+			saveScriptToStorage('after-response', afterResponseScript);
+		}
+	});
 </script>
 
 <svelte:window onkeydown={handleShortcut} />
@@ -406,171 +515,193 @@
 					mobileViewMode === 'response' ? 'hidden lg:flex' : 'flex'
 				)}
 			>
-				<div
-					class="flex shrink-0 items-center justify-between border-b border-border px-2 py-2 text-xs tracking-[0.2em] text-muted-foreground uppercase sm:px-3 sm:py-3 lg:justify-start lg:px-6 lg:py-3"
-				>
-					Request Builder
-					<Button
-						size="icon-sm"
-						variant="ghost"
-						aria-label="View response"
-						class="lg:hidden"
-						onclick={() => (mobileViewMode = 'response')}
-					>
-						→
-					</Button>
-				</div>
-				<div class="min-h-0 flex-1 overflow-y-auto">
-					<!-- todo: find out why h-[1px] gives auto height, h-auto doesnt -->
-					<div
-						class="h-auto w-full space-y-2 px-2 py-2 text-xs text-muted-foreground sm:px-3 sm:py-3 lg:px-6 lg:py-4"
-					>
-						<Accordion.Root type="multiple" bind:value={requestAccordion} class="space-y-2">
-							<Accordion.Item
-								value="auth"
-								class="rounded-md border border-border bg-muted/20 px-2 sm:px-3 lg:px-3"
-							>
-								<Accordion.Trigger
-									class="py-2 text-xs tracking-[0.2em] text-muted-foreground uppercase sm:py-2 lg:py-3"
-								>
-									Authentication
-								</Accordion.Trigger>
-								<Accordion.Content class="pt-1">
-									<InputGroup.Root>
-										<InputGroup.Addon>
-											<InputGroup.Text>Bearer</InputGroup.Text>
-										</InputGroup.Addon>
-										<InputGroup.Input
-											class="text-xs"
-											placeholder="Token"
-											bind:value={bearerToken}
-										/>
-									</InputGroup.Root>
-								</Accordion.Content>
-							</Accordion.Item>
+				<Tabs.Root value="request" class="flex min-h-0 flex-col">
+					<Tabs.List class="w-full justify-start rounded-none border-b border-border bg-muted/40 px-2 sm:px-3 lg:px-6">
+						<Tabs.Trigger value="before-request" class="rounded-t-md">Before Request</Tabs.Trigger>
+						<Tabs.Trigger value="request" class="rounded-t-md">Request Builder</Tabs.Trigger>
+						<Tabs.Trigger value="after-response" class="rounded-t-md">After Response</Tabs.Trigger>
+						<Button
+							size="icon-sm"
+							variant="ghost"
+							aria-label="View response"
+							class="ml-auto lg:hidden"
+							onclick={() => (mobileViewMode = 'response')}
+						>
+							→
+						</Button>
+					</Tabs.List>
 
-							<Accordion.Item
-								value="query"
-								class="rounded-md border border-border bg-muted/20 px-2 sm:px-3 lg:px-3"
-							>
-								<Accordion.Trigger
-									class="py-2 text-xs tracking-[0.2em] text-muted-foreground uppercase sm:py-2 lg:py-3"
+					<Tabs.Content value="before-request" class="min-h-0 flex-1 overflow-y-auto">
+						<div class="h-auto w-full space-y-2 px-2 py-2 text-xs text-muted-foreground sm:px-3 sm:py-3 lg:px-6 lg:py-4">
+							<div class="mb-4 rounded-md bg-muted/20 p-3">
+								<p class="text-xs text-muted-foreground">
+									JavaScript executed before sending the request. Access request details via the <code class="bg-muted px-1 rounded">request</code> object and the SDK via <code class="bg-muted px-1 rounded">sdk</code>.
+								</p>
+							</div>
+							<Editor language="javascript" bind:value={beforeRequestScript} handleSubmit={sendRequest} />
+						</div>
+					</Tabs.Content>
+
+					<Tabs.Content value="request" class="min-h-0 flex-1 overflow-y-auto">
+						<div class="h-auto w-full space-y-2 px-2 py-2 text-xs text-muted-foreground sm:px-3 sm:py-3 lg:px-6 lg:py-4">
+							<Accordion.Root type="multiple" bind:value={requestAccordion} class="space-y-2">
+								<Accordion.Item
+									value="auth"
+									class="rounded-md border border-border bg-muted/20 px-2 sm:px-3 lg:px-3"
 								>
-									Query Parameters
-								</Accordion.Trigger>
-								<Accordion.Content class="pt-1">
-									<div class="space-y-2">
-										{#each queryRows as row (row.id)}
-											<div
-												class="grid grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)_auto] items-center gap-2"
-											>
-												<Checkbox bind:checked={row.enabled} disabled={isPathParameter(row.key)} />
-												<InputGroup.Root class="h-8">
-													<InputGroup.Input
-														class="text-xs"
-														placeholder="Key"
-														bind:value={row.key}
-														readonly={isPathParameter(row.key)}
-													/>
-												</InputGroup.Root>
-												<InputGroup.Root class="h-8">
-													<InputGroup.Input
-														class="text-xs"
-														placeholder="Value"
-														bind:value={row.value}
-													/>
-												</InputGroup.Root>
-												<Button
-													size="icon-sm"
-													variant="ghost"
-													aria-label="Remove query param"
-													disabled={isPathParameter(row.key)}
-													onclick={() => removeRow(queryRows, row.id)}
+									<Accordion.Trigger
+										class="py-2 text-xs tracking-[0.2em] text-muted-foreground uppercase sm:py-2 lg:py-3"
+									>
+										Authentication
+									</Accordion.Trigger>
+									<Accordion.Content class="pt-1">
+										<InputGroup.Root>
+											<InputGroup.Addon>
+												<InputGroup.Text>Bearer</InputGroup.Text>
+											</InputGroup.Addon>
+											<InputGroup.Input
+												class="text-xs"
+												placeholder="Token"
+												bind:value={bearerToken}
+											/>
+										</InputGroup.Root>
+									</Accordion.Content>
+								</Accordion.Item>
+
+								<Accordion.Item
+									value="query"
+									class="rounded-md border border-border bg-muted/20 px-2 sm:px-3 lg:px-3"
+								>
+									<Accordion.Trigger
+										class="py-2 text-xs tracking-[0.2em] text-muted-foreground uppercase sm:py-2 lg:py-3"
+									>
+										Query Parameters
+									</Accordion.Trigger>
+									<Accordion.Content class="pt-1">
+										<div class="space-y-2">
+											{#each queryRows as row (row.id)}
+												<div
+													class="grid grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)_auto] items-center gap-2"
 												>
-													x
-												</Button>
-											</div>
-										{/each}
-									</div>
-									<Button size="sm" variant="ghost" onclick={addQueryRow}>Add query param</Button>
-								</Accordion.Content>
-							</Accordion.Item>
+													<Checkbox bind:checked={row.enabled} disabled={isPathParameter(row.key)} />
+													<InputGroup.Root class="h-8">
+														<InputGroup.Input
+															class="text-xs"
+															placeholder="Key"
+															bind:value={row.key}
+															readonly={isPathParameter(row.key)}
+														/>
+													</InputGroup.Root>
+													<InputGroup.Root class="h-8">
+														<InputGroup.Input
+															class="text-xs"
+															placeholder="Value"
+															bind:value={row.value}
+														/>
+													</InputGroup.Root>
+													<Button
+														size="icon-sm"
+														variant="ghost"
+														aria-label="Remove query param"
+														disabled={isPathParameter(row.key)}
+														onclick={() => removeRow(queryRows, row.id)}
+													>
+														x
+													</Button>
+												</div>
+											{/each}
+										</div>
+										<Button size="sm" variant="ghost" onclick={addQueryRow}>Add query param</Button>
+									</Accordion.Content>
+								</Accordion.Item>
 
-							<Accordion.Item
-								value="headers"
-								class="rounded-md border border-border bg-muted/20 px-2 sm:px-3 lg:px-3"
-							>
-								<Accordion.Trigger
-									class="py-2 text-xs tracking-[0.2em] text-muted-foreground uppercase sm:py-2 lg:py-3"
+								<Accordion.Item
+									value="headers"
+									class="rounded-md border border-border bg-muted/20 px-2 sm:px-3 lg:px-3"
 								>
-									Request Headers
-								</Accordion.Trigger>
-								<Accordion.Content class="pt-1">
-									<div class="space-y-2">
-										{#each headerRows as row (row.id)}
-											<div
-												class="grid grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)_auto] items-center gap-2"
-											>
-												<Checkbox bind:checked={row.enabled} />
-												<InputGroup.Root class="h-8">
-													<InputGroup.Input
-														class="text-xs"
-														placeholder="Header"
-														bind:value={row.key}
-													/>
-												</InputGroup.Root>
-												<InputGroup.Root class="h-8">
-													<InputGroup.Input
-														class="text-xs"
-														placeholder="Value"
-														bind:value={row.value}
-													/>
-												</InputGroup.Root>
-												<Button
-													size="icon-sm"
-													variant="ghost"
-													aria-label="Remove header"
-													onclick={() => removeRow(headerRows, row.id)}
+									<Accordion.Trigger
+										class="py-2 text-xs tracking-[0.2em] text-muted-foreground uppercase sm:py-2 lg:py-3"
+									>
+										Request Headers
+									</Accordion.Trigger>
+									<Accordion.Content class="pt-1">
+										<div class="space-y-2">
+											{#each headerRows as row (row.id)}
+												<div
+													class="grid grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)_auto] items-center gap-2"
 												>
-													x
-												</Button>
-											</div>
-										{/each}
-									</div>
-									<Button size="sm" variant="ghost" onclick={addHeaderRow}>Add header</Button>
-								</Accordion.Content>
-							</Accordion.Item>
+													<Checkbox bind:checked={row.enabled} />
+													<InputGroup.Root class="h-8">
+														<InputGroup.Input
+															class="text-xs"
+															placeholder="Header"
+															bind:value={row.key}
+														/>
+													</InputGroup.Root>
+													<InputGroup.Root class="h-8">
+														<InputGroup.Input
+															class="text-xs"
+															placeholder="Value"
+															bind:value={row.value}
+														/>
+													</InputGroup.Root>
+													<Button
+														size="icon-sm"
+														variant="ghost"
+														aria-label="Remove header"
+														onclick={() => removeRow(headerRows, row.id)}
+													>
+														x
+													</Button>
+												</div>
+											{/each}
+										</div>
+										<Button size="sm" variant="ghost" onclick={addHeaderRow}>Add header</Button>
+									</Accordion.Content>
+								</Accordion.Item>
 
-							<Accordion.Item
-								value="body"
-								class="rounded-md border border-border bg-muted/20 px-2 sm:px-3 lg:px-3"
-							>
-								<Accordion.Trigger
-									class="py-2 text-xs tracking-[0.2em] text-muted-foreground uppercase sm:py-2 lg:py-3"
+								<Accordion.Item
+									value="body"
+									class="rounded-md border border-border bg-muted/20 px-2 sm:px-3 lg:px-3"
 								>
-									Request Body
-								</Accordion.Trigger>
-								<Accordion.Content class="pt-1">
-									<Editor language="json" bind:value={bodyTextValue} handleSubmit={sendRequest} />
-								</Accordion.Content>
-							</Accordion.Item>
+									<Accordion.Trigger
+										class="py-2 text-xs tracking-[0.2em] text-muted-foreground uppercase sm:py-2 lg:py-3"
+									>
+										Request Body
+									</Accordion.Trigger>
+									<Accordion.Content class="pt-1">
+										<Editor language="json" bind:value={bodyTextValue} handleSubmit={sendRequest} />
+									</Accordion.Content>
+								</Accordion.Item>
 
-							<Accordion.Item
-								value="snippet"
-								class="rounded-md border border-border bg-muted/20 px-2 sm:px-3 lg:px-3"
-							>
-								<Accordion.Trigger
-									class="py-2 text-xs tracking-[0.2em] text-muted-foreground uppercase sm:py-2 lg:py-3"
+								<Accordion.Item
+									value="snippet"
+									class="rounded-md border border-border bg-muted/20 px-2 sm:px-3 lg:px-3"
 								>
-									Code Snippet
-								</Accordion.Trigger>
-								<Accordion.Content class="pt-1">
-									<Editor language="javascript" disabled={true} value={sdkSnippet}></Editor>
-								</Accordion.Content>
-							</Accordion.Item>
-						</Accordion.Root>
-					</div>
-				</div>
+									<Accordion.Trigger
+										class="py-2 text-xs tracking-[0.2em] text-muted-foreground uppercase sm:py-2 lg:py-3"
+									>
+										Code Snippet
+									</Accordion.Trigger>
+									<Accordion.Content class="pt-1">
+										<Editor language="javascript" disabled={true} value={sdkSnippet}></Editor>
+									</Accordion.Content>
+								</Accordion.Item>
+							</Accordion.Root>
+						</div>
+					</Tabs.Content>
+
+					<Tabs.Content value="after-response" class="min-h-0 flex-1 overflow-y-auto">
+						<div class="h-auto w-full space-y-2 px-2 py-2 text-xs text-muted-foreground sm:px-3 sm:py-3 lg:px-6 lg:py-4">
+							<div class="mb-4 rounded-md bg-muted/20 p-3">
+								<p class="text-xs text-muted-foreground">
+									JavaScript executed after receiving the response. Access the response via the <code class="bg-muted px-1 rounded">response</code> object and the SDK via <code class="bg-muted px-1 rounded">sdk</code>.
+								</p>
+							</div>
+							<Editor language="javascript" bind:value={afterResponseScript} handleSubmit={sendRequest} />
+						</div>
+					</Tabs.Content>
+				</Tabs.Root>
 			</div>
 
 			<div
