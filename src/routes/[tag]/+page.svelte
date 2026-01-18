@@ -135,7 +135,6 @@
 		const method = endpoint.method.toLowerCase();
 		const sdkAccess = `${sdkAccessorForPath(endpoint.path)}.${method}`;
 		const options = [];
-		if (baseUrl) options.push(`baseUrl: "${baseUrl}"`);
 		const optionsBlock = options.length ? `, {\n  ${options.join(',\n  ')}\n}` : '';
 		const supportsBody = !['GET', 'HEAD'].includes(endpoint.method);
 		const bodyValue = formatSdkBody(requestExample || '{}');

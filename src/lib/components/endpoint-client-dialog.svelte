@@ -28,13 +28,7 @@
 	let sdk = $state(null);
 
 	// todo: remove manual fetch use jevido-sdk instead
-	// todo: fix the data leak, 1600 requests aint normal with 136mb download
-	// todo: add a before request, and after response script option (these scripts should add a editor with javascript, and users should not HAVE to write fetch themselves they can, but jevido-sdk is available to the script), there should be a global variable for them (mind you this is endpoint & openapi bound, not just 1 of the 2), and the response script should have a const called "response" which contains the response value (not just body, but the body is parsed as json)
 	// todo: implement a way to share the requests/response scripts
-	// todo: make the component responsive for smaller screens
-	// todo: stylize the component so it has a more modern look
-	// todo: the url related query params should be locked as they are required for the url to be build. So your should not be able to remove the query parameters such as :guildId, but you can remove url search parameters such as ?limit=x
-	// todo: write the correct snippet for bakery-sdk, the createSDK accepts 1 param, a string to this openapi.json specs like so: const sdk = await createSDK("https://api.example.com/openapi.json");
 	// todo: allow injecting variables to the request body, such as {token} or {user.id}
 
 	function getStorageKey(prefix) {
@@ -288,7 +282,6 @@
 		const method = endpoint.method.toLowerCase();
 		const sdkAccess = `${sdkAccessorForPath(endpoint.path)}.${method}`;
 		const options = [];
-		if (baseUrl) options.push(`baseUrl: "${baseUrl}"`);
 		const trimmedToken = bearerToken.trim();
 		if (trimmedToken) options.push(`token: "${trimmedToken}"`);
 		const optionsBlock = options.length ? `, {\n  ${options.join(',\n  ')}\n}` : '';
