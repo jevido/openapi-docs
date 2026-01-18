@@ -730,10 +730,9 @@
 								<p class="text-xs tracking-[0.2em] text-muted-foreground uppercase">
 									{responseStatus}
 								</p>
-								<pre
-									class="rounded-md border border-border bg-muted/40 p-3 text-xs leading-relaxed text-foreground">
-{responseText}
-								</pre>
+								<div class="rounded-md border border-border overflow-hidden">
+									<Editor language="json" disabled={true} value={responseText} />
+								</div>
 							</div>
 						{:else}
 							<div
