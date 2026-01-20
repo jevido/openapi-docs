@@ -8,7 +8,7 @@
 	import * as Accordion from '$lib/components/ui/accordion/index.js';
 	import * as Tabs from '$lib/components/ui/tabs/index.js';
 	import * as InputGroup from '$lib/components/ui/input-group/index.js';
-	import { schemaToExample } from '$lib/api/openapi.js';
+	import { getContentExampleValue, schemaToExample } from '$lib/api/openapi.js';
 	import { cn } from '$lib/utils';
 	import { createSDK } from 'jevido-sdk';
 	let { endpoint, doc, baseUrl, specUrl = '' } = $props();
@@ -235,6 +235,8 @@
 	let bodyTextDirty = $state(false);
 	let bodyTextDefault = $derived.by(() => {
 		if (!open) return '';
+		const contentExample = getContentExampleValue(doc?.requestBody?.content);
+		if (contentExample != null) return JSON.stringify(contentExample, null, 2);
 		const schema = doc?.requestBodySchema;
 		if (!schema) return '';
 		const example = schemaToExample(schema);
@@ -781,7 +783,7 @@
 							<div
 								class="flex min-h-90 flex-col items-center justify-center gap-6 text-muted-foreground"
 							>
-								<pre class="text-xs leading-tight text-muted-foreground">
+								<pre class="text-[4px] leading-tight text-muted-foreground">
 ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣠⣤⣶⣲⣻⣿⢯⡿⣟⣿⣟⣶⣶⣤⣄⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
 ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⣤⢖⣿⡿⣷⢿⡻⣿⣽⡻⣽⡻⣽⣯⣿⣿⣿⣽⣿⣿⣿⣷⣦⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
 ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⣠⣴⢺⡝⣲⣟⡞⣟⢧⣻⣝⢮⣽⣳⢽⣹⢷⣿⡞⣿⡿⣿⣽⣿⣿⣿⣿⣿⣿⣶⣄⡀⠀⠀⠀⠀⠀⠀⠀⠀

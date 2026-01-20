@@ -260,7 +260,12 @@ export function getTag(openapi, name) {
 export function schemaToExample(schema) {
 	if (!schema) return null;
 
-	if (schema.examples?.length) return schema.examples[0];
+	if (Array.isArray(schema.examples) && schema.examples.length) return schema.examples[0];
+	if (schema.examples && typeof schema.examples === 'object') {
+		const first = Object.values(schema.examples)[0];
+		if (first && typeof first === 'object' && 'value' in first) return first.value ?? null;
+		return first ?? null;
+	}
 	if (schema.example != null) return schema.example;
 	if (schema.default != null) return schema.default;
 	if (schema.enum?.length) return schema.enum[0];
@@ -285,6 +290,25 @@ export function schemaToExample(schema) {
 	if (schema.type === 'boolean') return false;
 	if (schema.type === 'integer' || schema.type === 'number') return 0;
 	if (schema.type === 'string') return 'string';
+
+	return null;
+}
+
+export function getContentExampleValue(content, preferredMediaType = 'application/json') {
+	if (!content?.length) return null;
+
+	const ordered = [];
+	const preferred = preferredMediaType
+		? content.find((entry) => entry.mediaType === preferredMediaType)
+		: null;
+	if (preferred) ordered.push(preferred);
+	ordered.push(...content.filter((entry) => entry !== preferred));
+
+	for (const entry of ordered) {
+		if (!entry?.examples?.length) continue;
+		const withValue = entry.examples.find((example) => example?.value != null);
+		if (withValue?.value != null) return withValue.value;
+	}
 
 	return null;
 }
@@ -316,13 +340,33 @@ function resolveSchema(openapi, schema) {
 
 function normalizeExamples(examples, example) {
 	if (examples && typeof examples === 'object') {
-		return Object.entries(examples).map(([name, value]) => ({
-			name,
-			summary: value?.summary ?? '',
-			description: value?.description ?? '',
-			value: value?.value ?? null,
-			externalValue: value?.externalValue ?? ''
-		}));
+		return Object.entries(examples).map(([name, value]) => {
+			const isExampleObject =
+				value &&
+				typeof value === 'object' &&
+				('value' in value ||
+					'externalValue' in value ||
+					'summary' in value ||
+					'description' in value);
+
+			if (!isExampleObject) {
+				return {
+					name,
+					summary: '',
+					description: '',
+					value: value ?? null,
+					externalValue: ''
+				};
+			}
+
+			return {
+				name,
+				summary: value?.summary ?? '',
+				description: value?.description ?? '',
+				value: value?.value ?? null,
+				externalValue: value?.externalValue ?? ''
+			};
+		});
 	}
 
 	if (example != null) {

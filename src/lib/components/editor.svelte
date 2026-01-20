@@ -4,6 +4,7 @@
 	import * as InputGroup from '$lib/components/ui/input-group/index.js';
 	import * as monaco from 'monaco-editor';
 	import { format } from 'prettier';
+
 	let {
 		value = $bindable(''),
 		language = 'json',

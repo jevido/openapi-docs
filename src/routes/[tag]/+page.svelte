@@ -6,6 +6,7 @@
 		endpointAnchor,
 		getEndpointsByTag,
 		getEndpointDoc,
+		getContentExampleValue,
 		getServerUrl,
 		getTag,
 		schemaToExample
@@ -83,6 +84,10 @@
 		return JSON.stringify(value, null, 2);
 	}
 
+	function formatJsonBlock(value) {
+		return JSON.stringify(value ?? {}, null, 2);
+	}
+
 	function formatExamplesPreview(examples) {
 		if (!examples?.length) return '—';
 		const example = examples[0];
@@ -127,6 +132,8 @@
 	}
 
 	function getRequestExample(doc) {
+		const contentExample = getContentExampleValue(doc?.requestBody?.content);
+		if (contentExample != null) return JSON.stringify(contentExample, null, 2);
 		const schema = doc?.requestBodySchema;
 		if (!schema) return '';
 		const example = schemaToExample(schema);
@@ -179,13 +186,6 @@
 			'',
 			`const result = await ${callLine};`
 		].join('\n');
-	}
-
-	function getResponseExample(doc, status) {
-		const schema = doc?.responseSchemas?.[status];
-		if (!schema) return '';
-		const example = schemaToExample(schema);
-		return JSON.stringify(example ?? {}, null, 2);
 	}
 </script>
 
@@ -347,7 +347,7 @@
 																{/if}
 																{#if scheme.scopes?.length}
 																	<div class="flex flex-wrap gap-2">
-																		{#each scheme.scopes as scope}
+																		{#each scheme.scopes as scope (scope)}
 																			<Badge variant="outline">{scope}</Badge>
 																		{/each}
 																	</div>
@@ -553,12 +553,107 @@
 												</Tabs.List>
 
 												{#each Object.keys(doc.responses) as status (status)}
-													{@const responseExample = getResponseExample(doc, status)}
-													<Tabs.Content value={status} class="overflow-hidden">
-														{#if responseExample}
-															<Editor value={responseExample} language="json" disabled={true} />
+													{@const response = doc.responses?.[status]}
+													{@const responseContent = response?.content ?? []}
+													<Tabs.Content value={status} class="space-y-4">
+														{#if response?.description}
+															<div class="text-sm text-muted-foreground">
+																{response.description}
+															</div>
+														{/if}
+														{#if responseContent.length}
+															{#each responseContent as content (content.mediaType)}
+																{#if content.schema}
+																	<Editor
+																		value={formatJsonBlock(content.schema)}
+																		language="json"
+																		disabled={true}
+																	/>
+																{:else}
+																	<div class="text-sm text-muted-foreground">No schema</div>
+																{/if}
+
+																{#if content.examples?.length}
+																	<div class="space-y-2">
+																		<div
+																			class="text-xs tracking-[0.2em] text-muted-foreground uppercase"
+																		>
+																			Examples
+																		</div>
+																		{#if content.examples.length === 1}
+																			{#if content.examples[0].externalValue}
+																				<a
+																					class="text-xs text-primary underline-offset-4 hover:underline"
+																					href={content.examples[0].externalValue}
+																					rel="noreferrer"
+																					target="_blank"
+																				>
+																					{content.examples[0].externalValue}
+																				</a>
+																			{:else}
+																				<Editor
+																					value={formatJsonBlock(content.examples[0].value)}
+																					language="json"
+																					disabled={true}
+																				/>
+																			{/if}
+																		{:else}
+																			<Tabs.Root value={content.examples[0].name || 'Example 1'}>
+																				<Tabs.List class="mb-2">
+																					{#each content.examples as example, exampleIndex (example.name || exampleIndex)}
+																						<Tabs.Trigger
+																							value={example.name || `Example ${exampleIndex + 1}`}
+																						>
+																							{example.name || `Example ${exampleIndex + 1}`}
+																						</Tabs.Trigger>
+																					{/each}
+																				</Tabs.List>
+																				{#each content.examples as example, exampleIndex (example.name || exampleIndex)}
+																					<Tabs.Content
+																						value={example.name || `Example ${exampleIndex + 1}`}
+																						class="space-y-2"
+																					>
+																						{#if example.summary}
+																							<div class="text-xs text-muted-foreground">
+																								{example.summary}
+																							</div>
+																						{/if}
+																						{#if example.description}
+																							<div class="text-xs text-muted-foreground">
+																								{example.description}
+																							</div>
+																						{/if}
+																						{#if example.externalValue}
+																							<a
+																								class="text-xs text-primary underline-offset-4 hover:underline"
+																								href={example.externalValue}
+																								rel="noreferrer"
+																								target="_blank"
+																							>
+																								{example.externalValue}
+																							</a>
+																						{:else}
+																							<Editor
+																								value={formatJsonBlock(example.value)}
+																								language="json"
+																								disabled={true}
+																							/>
+																						{/if}
+																					</Tabs.Content>
+																				{/each}
+																			</Tabs.Root>
+																		{/if}
+																	</div>
+																{:else}
+																	<div class="text-sm text-muted-foreground">
+																		No examples defined.
+																	</div>
+																{/if}
+															{/each}
 														{:else}
-															<div class="text-sm text-muted-foreground">No example available.</div>
+															<div class="text-sm text-muted-foreground">
+																No response body defined.
+															</div>
 														{/if}
 													</Tabs.Content>
 												{/each}
