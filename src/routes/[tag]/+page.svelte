@@ -46,7 +46,9 @@
 		if (!$openapiSpecs || !currentTag) return [];
 		return getEndpointsByTag($openapiSpecs)[currentTag] ?? [];
 	});
-	const linkResolver = $derived.by(() => createOpenApiLinkResolver($openapiSpecs));
+	const linkResolver = $derived.by(() =>
+		createOpenApiLinkResolver($openapiSpecs, { preferredTag: currentTag })
+	);
 
 	function methodClass(method) {
 		switch (method) {

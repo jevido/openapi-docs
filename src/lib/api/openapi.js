@@ -37,6 +37,21 @@ export function endpointAnchor(path, method) {
 	return `${path}-${method.toUpperCase()}`;
 }
 
+function normalizeTags(value) {
+	if (Array.isArray(value)) {
+		const tags = value.map((tag) => (typeof tag === 'string' ? tag.trim() : '')).filter(Boolean);
+		return tags.length ? tags : ['Untagged'];
+	}
+	if (typeof value === 'string') {
+		const tags = value
+			.split(',')
+			.map((tag) => tag.trim())
+			.filter(Boolean);
+		return tags.length ? tags : ['Untagged'];
+	}
+	return ['Untagged'];
+}
+
 function decodePointerSegment(value) {
 	if (!value) return '';
 	const decoded = value.replace(/~1/g, '/').replace(/~0/g, '~');
@@ -53,23 +68,41 @@ function normalizePointer(href) {
 	return pointer ? pointer.split('/') : null;
 }
 
-export function createOpenApiLinkResolver(openapi) {
+export function createOpenApiLinkResolver(openapi, options = {}) {
 	if (!openapi) return null;
 
 	const tagByPathMethod = new Map();
 	const byOperationId = new Map();
+	const preferredTags = new Set();
+
+	if (typeof options.preferredTag === 'string' && options.preferredTag.trim()) {
+		preferredTags.add(options.preferredTag);
+	}
+	if (Array.isArray(options.preferredTags)) {
+		for (const tag of options.preferredTags) {
+			if (typeof tag === 'string' && tag.trim()) preferredTags.add(tag);
+		}
+	}
 
 	for (const [path, methods] of Object.entries(openapi.paths || {})) {
 		for (const [method, operation] of Object.entries(methods || {})) {
 			if (!operation || typeof operation !== 'object') continue;
-			const tags = operation.tags?.length ? operation.tags : ['Untagged'];
-			const primaryTag = tags[0] || 'Untagged';
+			const tags = normalizeTags(operation.tags);
 			const upperMethod = method.toUpperCase();
-			tagByPathMethod.set(`${path} ${upperMethod}`, primaryTag);
+			tagByPathMethod.set(`${path} ${upperMethod}`, tags);
 			if (operation.operationId) {
-				byOperationId.set(operation.operationId, { path, method: upperMethod, tag: primaryTag });
+				byOperationId.set(operation.operationId, { path, method: upperMethod, tags });
 			}
 		}
+	}
+
+	function pickTag(tags) {
+		if (preferredTags.size) {
+			for (const tag of tags) {
+				if (preferredTags.has(tag)) return tag;
+			}
+		}
+		return tags[0] || 'Untagged';
 	}
 
 	return function resolveOpenApiLink(href) {
@@ -80,7 +113,8 @@ export function createOpenApiLinkResolver(openapi) {
 		if (root === 'paths' && rest.length >= 2) {
 			const path = decodePointerSegment(rest[0]);
 			const method = decodePointerSegment(rest[1]).toUpperCase();
-			const tag = tagByPathMethod.get(`${path} ${method}`) || 'Untagged';
+			const tags = tagByPathMethod.get(`${path} ${method}`) || ['Untagged'];
+			const tag = pickTag(tags);
 			const anchor = endpointAnchor(path, method);
 			return `${tagToPath(tag)}#${anchor}`;
 		}
@@ -94,7 +128,8 @@ export function createOpenApiLinkResolver(openapi) {
 			const operationId = decodePointerSegment(rest[0]);
 			const match = byOperationId.get(operationId);
 			if (!match) return href;
-			return `${tagToPath(match.tag)}#${endpointAnchor(match.path, match.method)}`;
+			const tag = pickTag(match.tags || ['Untagged']);
+			return `${tagToPath(tag)}#${endpointAnchor(match.path, match.method)}`;
 		}
 
 		return href;
@@ -110,7 +145,8 @@ export function getEndpointsByTag(openapi) {
 
 	for (const [path, methods] of Object.entries(openapi.paths || {})) {
 		for (const [method, operation] of Object.entries(methods)) {
-			const tags = operation.tags || ['Untagged'];
+			if (!operation || typeof operation !== 'object') continue;
+			const tags = normalizeTags(operation.tags);
 
 			for (const tag of tags) {
 				if (!result[tag]) result[tag] = [];
